@@ -1,2 +1,1 @@
-"""LLM kernel implementations and performance experiments."""
-
+"""LLM Kernel 实现与性能实验。"""

@@ -1,2 +1,1 @@
-"""Vector-add reference and Triton implementations."""
-
+"""Vector Add 的参考实现与 Triton 实现。"""

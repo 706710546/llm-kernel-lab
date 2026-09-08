@@ -1,31 +1,27 @@
-# How I Analyze a GPU Kernel
+# 我如何分析一个 GPU Kernel
 
-This document is a living checklist. Update it only when an experiment teaches
-something concrete.
+这是一份会随着实验不断更新的检查表。只有真正从实验中得到结论后，才把结论写进来。
 
-1. Understand the algorithm.
-2. Determine input and output shapes.
-3. Estimate FLOPs.
-4. Estimate memory traffic.
-5. Calculate arithmetic intensity.
-6. Form a bottleneck hypothesis.
-7. Implement a reference.
-8. Test correctness, including edge shapes.
-9. Benchmark with warmup and latency percentiles.
-10. Profile the suspected bottleneck.
-11. Optimize one factor at a time.
-12. Benchmark again and explain the result.
+1. 理解算法和数学定义。
+2. 明确输入、输出的 Tensor 形状。
+3. 估算理论 FLOPs。
+4. 估算需要搬运的字节数。
+5. 计算算术强度（Arithmetic Intensity）。
+6. 提出性能瓶颈假设。
+7. 实现可信的参考版本。
+8. 测试正确性，包括边界形状。
+9. 预热后测量延迟中位数和分位数。
+10. 使用 Profiler 检查怀疑的瓶颈。
+11. 每次只优化一个因素。
+12. 再次 Benchmark，并用数据解释结果。
 
-## Experiment log
+## 实验记录
 
 ### Vector Add
 
-- Hypothesis: large FP32 vectors are memory-bandwidth bound.
-- Evidence: on the RTX 3080 Ti, both providers plateau near 816–818 GB/s at
-  `N = 2^26`; small inputs are dominated by roughly 4–6 microseconds of fixed
-  launch/timing cost.
-- Observation: neither provider has a meaningful large-input advantage in this
-  first implementation. The result supports the bandwidth-bound hypothesis;
-  it does not support a broad claim that Triton is inherently faster.
-- Next question: compare the plateau with a profiler-reported DRAM throughput
-  before attributing the remaining gap to a specific hardware limit.
+- 假设：大尺寸 FP32 Vector Add 受到显存带宽限制。
+- 证据：在 RTX 3080 Ti 上，当 `N = 2^26` 时，PyTorch 和 Triton 都稳定在约
+  816–818 GB/s；小尺寸输入的耗时约为 4–6 微秒，主要受固定启动和计时开销影响。
+- 观察：第一个 Triton 版本在大尺寸下没有明显领先 PyTorch。这支持“带宽受限”的
+  假设，但不能支持“Triton 天生比 PyTorch 快”这样的笼统结论。
+- 下一步问题：使用 Profiler 测量真实 DRAM Throughput，再判断剩余差距来自哪里。

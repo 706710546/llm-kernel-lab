@@ -1,51 +1,54 @@
 # LLM Kernel Lab
 
-A hands-on laboratory for implementing, profiling, and optimizing LLM operators
-with PyTorch, Triton, and CUDA.
+> 使用 PyTorch、Triton 和 CUDA 实现、分析并优化大语言模型核心算子。
+>
+> A hands-on laboratory for implementing, profiling, and optimizing LLM
+> operators with PyTorch, Triton, and CUDA.
 
-PyTorch reference → Triton kernel → correctness → benchmark → performance analysis
+项目采用统一的研究流程：
 
-This project prioritizes learning, correctness, profiling, and architectural
-understanding over production completeness.
+```text
+PyTorch 参考实现 → Triton Kernel → 正确性测试 → 性能基准 → 瓶颈分析
+```
 
-## Current milestone
+本项目优先关注学习、正确性、性能分析和硬件原理，不以成为生产级算子库为目标。
 
-Only Phase 0 / Vector Add is in scope. A new operator is added only after the
-current one has a tested implementation, reproducible benchmark, and written
-performance analysis.
+## 当前里程碑
 
-| Operator | PyTorch | Triton | CUDA | Analysis |
+目前只研究 Phase 0 的 Vector Add。只有当前算子拥有正确实现、可复现的 Benchmark
+以及完整的性能解释后，才会进入下一个算子。
+
+| 算子 | PyTorch | Triton | CUDA | 研究重点 |
 |---|---:|---:|---:|---|
-| Vector Add | ✓ | ✓ | planned | memory bandwidth |
+| Vector Add | ✓ | ✓ | 计划中 | 显存带宽 |
 
-## Tested environment
+## 已验证的开发环境
 
-- Windows 11, Python 3.11.9
-- NVIDIA GeForce RTX 3080 Ti (12 GB, compute capability 8.6)
-- NVIDIA driver 591.86
+- Windows 11、Python 3.11.9
+- NVIDIA GeForce RTX 3080 Ti（12 GB，计算能力 8.6）
+- NVIDIA 驱动 591.86
 - CUDA Toolkit 12.6
 - PyTorch 2.14.0+cu126
 - triton-windows 3.8.0.post28
 - Visual Studio Build Tools 2022 / MSVC 19.44
 
-See [the environment audit](docs/environment.md) for compiler and publishing
-details.
+编译器和 Git 发布环境的详细情况见[开发环境检查](docs/environment.md)。
 
-## Run the first experiment
+## 运行第一个实验
 
 ```powershell
 python llm_kernels/vector_add/test.py
 python llm_kernels/vector_add/benchmark.py
 ```
 
-The benchmark reports latency and effective bandwidth. For a vector of `N`
-FP32 elements, the minimum modeled global-memory traffic is:
+Benchmark 会输出延迟和有效带宽。对于包含 `N` 个 FP32 元素的向量，理论上的最低
+全局显存流量为：
 
 ```text
-read x + read y + write output = 12N bytes
+读取 x + 读取 y + 写入 output = 12N 字节
 ```
 
-## Repository layout
+## 当前目录结构
 
 ```text
 llm-kernel-lab/
@@ -53,7 +56,10 @@ llm-kernel-lab/
 ├── LICENSE
 ├── pyproject.toml
 ├── requirements.txt
+├── benchmarks/
+│   └── results/
 ├── docs/
+│   ├── environment.md
 │   └── gpu-performance-playbook.md
 └── llm_kernels/
     └── vector_add/
@@ -64,9 +70,9 @@ llm-kernel-lab/
         └── README.md
 ```
 
-## Project question
+## 项目的核心问题
 
-For every kernel, this repository asks the same question:
+对于每一个 Kernel，本项目都会回答同一个问题：
 
-> Can measured performance be explained from the algorithm, tensor shape,
-> memory traffic, GPU execution model, and implementation choices?
+> 我们能否从算法、Tensor 形状、显存流量、GPU 执行模型和具体实现方式出发，解释
+> 实际测得的性能？

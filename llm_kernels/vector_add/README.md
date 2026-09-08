@@ -1,76 +1,83 @@
 # Vector Add
 
-This is the first complete experiment in LLM Kernel Lab. The arithmetic is
-simple on purpose: it isolates GPU launch overhead and global-memory bandwidth.
+Vector Add 是 LLM Kernel Lab 的第一个完整实验。它的计算非常简单，因此可以帮助我们
+单独观察 Kernel 启动开销和全局显存带宽。
 
-## 1. Mathematical definition
+## 1. 数学定义
 
-For two vectors of equal length:
+对于两个长度相同的向量：
 
 ```text
 output[i] = x[i] + y[i]
 ```
 
-## 2. Input and output shape
+## 2. 输入与输出形状
 
-The first implementation accepts equal-shaped, contiguous CUDA tensors. The
-kernel treats every tensor as a flat vector of `N` elements.
+第一个版本接受形状相同、内存连续且位于 CUDA 设备上的 Tensor。Kernel 会把任意形状
+的 Tensor 看作长度为 `N` 的一维向量。
 
-## 3. PyTorch baseline
+## 3. PyTorch 参考实现
 
-The reference is `torch.add`, expressed as `x + y`.
+参考结果使用 `torch.add`，代码写作 `x + y`。它首先用于验证 Triton 输出是否正确，
+同时也是性能对照组。
 
-## 4. Theoretical FLOPs
+## 4. 理论 FLOPs
 
-There is one floating-point addition per element, so the modeled work is `N`
-FLOPs.
+每个元素只进行一次浮点加法，所以总计算量约为 `N` FLOPs。
 
-## 5. Modeled memory traffic
+## 5. 理论显存流量
 
-Each element requires two global-memory reads and one global-memory write. For
-FP32, that is `4 + 4 + 4 = 12` bytes per element, or `12N` bytes in total.
-
-## 6. Arithmetic intensity
-
-For FP32:
+每个元素需要读取两个输入，并写出一个结果。对于 FP32：
 
 ```text
-AI = N FLOPs / 12N bytes = 1/12 FLOP/byte
+读取 x：4 字节
+读取 y：4 字节
+写出 output：4 字节
+总计：12 字节/元素，即 12N 字节
 ```
 
-This is very low.
+## 6. 算术强度
 
-## 7. Bottleneck hypothesis
+对于 FP32：
 
-Large vectors should be memory-bandwidth bound. Very small vectors should be
-dominated by fixed costs such as kernel launch and timing overhead.
+```text
+AI = N FLOPs / 12N Bytes = 1/12 FLOP/Byte
+```
 
-## 8. GPU mapping
+这个数值非常低，说明每做一次加法，就需要搬运大量数据。
 
-One Triton program processes `block_size` contiguous elements. Adjacent lanes
-load adjacent addresses, enabling coalesced global-memory accesses. A mask keeps
-the final partial block in bounds when `N` is not divisible by `block_size`.
+## 7. 性能瓶颈假设
 
-## 9. Optimization used
+- 大向量应该受到显存带宽限制（Memory Bound）。
+- 很小的向量搬运数据很少，固定的 Kernel Launch 和计时开销会占据主要部分。
 
-The first version uses a one-dimensional grid, contiguous access, and one fused
-load-add-store kernel. There is deliberately no autotuning yet.
+## 8. GPU 映射方式
 
-## 10. Does the benchmark support the hypothesis?
+每个 Triton Program 处理连续的 `block_size` 个元素。相邻 Lane 访问相邻地址，有利于
+形成合并访存（Coalesced Memory Access）。当 `N` 不能被 `block_size` 整除时，最后
+一个 Program 使用 Mask 避免越界读写。
 
-The first local FP32 run on an RTX 3080 Ti reached approximately 816–818 GB/s
-at `N = 2^26` for both PyTorch and Triton. At `N <= 2^14`, the measured
-latency stayed around 4–5 microseconds, so fixed launch/timing costs dominated.
-The raw measurements are committed in
-`benchmarks/results/vector_add_rtx3080ti_fp32.csv`.
+## 9. 当前使用的优化
 
-This supports the memory-bandwidth hypothesis for large vectors, while showing
-that the simple Triton implementation is essentially tied with PyTorch at the
-largest sizes. Next, answer these questions with profiler evidence:
+第一个版本只使用一维 Grid、连续访存和单个 `load → add → store` Kernel，暂时不做
+Autotuning。这样可以先建立一个容易解释的基线。
 
-1. At what size does bandwidth stop increasing rapidly?
-2. How close is the plateau to the RTX 3080 Ti's practical memory bandwidth?
-3. Which provider wins for small vectors, and why?
-4. Do p20–p80 ranges indicate stable measurements?
+## 10. Benchmark 是否支持假设？
 
-Do not claim a speedup until the measurements have been recorded and explained.
+第一次 RTX 3080 Ti 本地实验中，当 `N = 2^26` 时，PyTorch 和 Triton 的 FP32 有效
+带宽都达到约 816–818 GB/s。当 `N <= 2^14` 时，延迟保持在约 4–5 微秒，说明此时
+主要受固定开销影响。
+
+原始数据保存在：
+
+```text
+benchmarks/results/vector_add_rtx3080ti_fp32.csv
+```
+
+大尺寸结果支持 Memory Bound 假设。与此同时，简单 Triton 实现与 PyTorch 基本持平，
+所以我们不能只写“Triton 更快”，而应该继续回答：
+
+1. 有效带宽从哪个尺寸开始进入平台期？
+2. 它与 Profiler 测得的 DRAM Throughput 有什么差别？
+3. 为什么小尺寸下两者存在几微秒差异？
+4. P20 到 P80 的范围是否说明测量稳定？

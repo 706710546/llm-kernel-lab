@@ -1,4 +1,4 @@
-"""Benchmark PyTorch and Triton Vector Add latency and effective bandwidth."""
+"""测量 PyTorch 和 Triton Vector Add 的延迟与有效带宽。"""
 
 from pathlib import Path
 import sys
@@ -20,13 +20,13 @@ REPEAT_MS = 100
 
 
 def effective_bandwidth_gbps(n_elements: int, element_size: int, latency_ms: float) -> float:
-    """Model two reads and one write: 3 * N * element_size bytes."""
+    """按照两次读取、一次写入计算理论数据搬运量。"""
     bytes_moved = 3 * n_elements * element_size
     return bytes_moved / (latency_ms * 1e-3) / 1e9
 
 
 def measure_ms(function) -> tuple[float, float, float]:
-    """Return the p50, p20, and p80 latency in milliseconds."""
+    """返回以毫秒为单位的 P50、P20 和 P80 延迟。"""
     p50, p20, p80 = triton.testing.do_bench(
         function,
         warmup=WARMUP_MS,
@@ -38,7 +38,7 @@ def measure_ms(function) -> tuple[float, float, float]:
 
 def main() -> None:
     if not torch.cuda.is_available():
-        raise RuntimeError("CUDA is not available")
+        raise RuntimeError("当前环境无法使用 CUDA")
 
     dtype = torch.float32
     sizes = [2**power for power in range(10, 27, 2)]
@@ -63,4 +63,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -1,47 +1,48 @@
-# Development Environment Audit
+# 开发环境检查
 
-Checked on 2026-09-08.
+检查日期：2026-09-08。
 
-## Ready now
+## 当前已经可用
 
-| Component | Detected version / state |
+| 组件 | 检测结果 |
 |---|---|
-| GPU | NVIDIA GeForce RTX 3080 Ti, 12 GB, compute capability 8.6 |
-| NVIDIA driver | 591.86 (reports CUDA compatibility up to 13.1) |
-| CUDA Toolkit | 12.6, `nvcc` 12.6.85 |
+| GPU | NVIDIA GeForce RTX 3080 Ti，12 GB，计算能力 8.6 |
+| NVIDIA 驱动 | 591.86，最高兼容 CUDA 13.1 |
+| CUDA Toolkit | 12.6，`nvcc` 12.6.85 |
 | Python | 3.11.9 |
-| PyTorch | 2.14.0+cu126; CUDA available |
+| PyTorch | 2.14.0+cu126，CUDA 可用 |
 | Triton | triton-windows 3.8.0.post28 |
-| MSVC | Visual Studio Build Tools 2022, compiler 19.44 |
+| MSVC | Visual Studio Build Tools 2022，编译器 19.44 |
 | CMake | 4.4.3 |
 | Ninja | 1.11.1 |
 | Nsight Compute CLI | 2024.3.2 |
 
-A Triton vector-add smoke test and an FP16 4096×4096 PyTorch matrix
-multiplication both ran successfully on the GPU.
+已经在 RTX 3080 Ti 上实际运行并通过以下测试：
 
-## Important details
+- Triton Vector Add；
+- PyTorch FP16 `4096 × 4096` 矩阵乘法。
 
-- `cl.exe` is installed but is not loaded into a normal PowerShell session.
-  Initialize the Visual Studio developer environment before compiling a CUDA
-  extension, or let CMake select the installed Build Tools instance.
-- The NVIDIA driver, PyTorch CUDA runtime, and CUDA Toolkit do not need identical
-  version labels. The relevant 12.6 runtime/toolkit path was validated by an
-  actual GPU run.
-- Native Windows Triton is supplied by `triton-windows`. Linux installations
-  should use the official `triton` package instead.
+因此当前 PyTorch、Triton、驱动和 CUDA Runtime 的组合可以正常执行 GPU 代码。
 
-## Not needed for the first milestone
+## 需要注意的细节
 
-- Nsight Systems (`nsys`) is not installed.
-- GNU Make is not installed. CMake + Ninja are available and are the preferred
-  Windows build path for future CUDA code.
-- GitHub CLI (`gh`) is not installed, and no SSH key was detected.
+- `cl.exe` 已安装，但普通 PowerShell 会话没有加载它。以后编译 CUDA 扩展时，需要先
+  初始化 Visual Studio 开发者环境，或者让 CMake 自动选择已经安装的 Build Tools。
+- NVIDIA 驱动、PyTorch CUDA Runtime 和 CUDA Toolkit 的版本号不必完全相同。
+  当前关键的 CUDA 12.6 路径已经通过真实 GPU 程序验证。
+- Windows 环境使用 `triton-windows`。如果以后迁移到 Linux，应改用官方 `triton` 包。
 
-## Git publishing blocker
+## 第一个里程碑暂时不需要
 
-The global Git author is currently the placeholder `Administrator
-<admin@local>`. Set a real author name and an email associated with GitHub in
-this repository before creating the first commit. Do not commit with the
-placeholder identity.
+- 尚未安装 Nsight Systems（`nsys`）。
+- 尚未安装 GNU Make。Windows 下已有 CMake + Ninja，后续 CUDA 构建优先使用它们。
+- 尚未安装 GitHub CLI（`gh`），也没有检测到 SSH 密钥。目前使用 HTTPS 推送。
+
+## Git 配置
+
+本仓库使用以下本地身份，不影响其他 Git 仓库：
+
+```text
+706710546 <313013248+706710546@users.noreply.github.com>
+```
 
