@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-kernel-lab"
+version = "0.1.0"
+description = "LLM operator implementations and GPU performance analysis with PyTorch, Triton, and CUDA."
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+license = { text = "MIT" }
+authors = [{ name = "706710546" }]
+
+[tool.setuptools.packages.find]
+include = ["llm_kernels*"]
+

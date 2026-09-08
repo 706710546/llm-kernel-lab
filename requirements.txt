@@ -1,0 +1,5 @@
+# Versions verified on the current Windows + RTX 3080 Ti environment.
+torch==2.14.0+cu126
+triton-windows==3.8.0.post28; sys_platform == "win32"
+triton==3.8.0; sys_platform == "linux"
+
