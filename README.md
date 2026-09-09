@@ -41,6 +41,13 @@ python llm_kernels/vector_add/test.py
 python llm_kernels/vector_add/benchmark.py
 ```
 
+完成正确性和 Benchmark 后，可以用 Nsight Compute 捕获一次预热后的 Kernel：
+
+```powershell
+ncu --set basic --kernel-name regex:vector_add_kernel --launch-skip 10 `
+    --launch-count 1 python llm_kernels/vector_add/profile.py
+```
+
 Benchmark 会输出延迟和有效带宽。对于包含 `N` 个 FP32 元素的向量，理论上的最低
 全局显存流量为：
 

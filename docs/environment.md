@@ -46,3 +46,14 @@
 706710546 <313013248+706710546@users.noreply.github.com>
 ```
 
+## Nsight Compute 权限
+
+第一次执行 Nsight Compute 时检测到 `ERR_NVGPUCTRPERM`。这表示当前普通进程没有权限
+读取 NVIDIA GPU Performance Counters，并不表示 Kernel 或 Nsight Compute 安装错误。
+
+本项目暂时采用风险更小的临时方式：从“以管理员身份运行”的 PowerShell 中启动
+`ncu`。如果以后频繁进行性能分析，也可以在 NVIDIA App 的
+`System → Advanced → Developer → Manage GPU Performance Counters` 中允许普通用户
+访问；修改该系统级设置需要管理员权限。
+
+参考：[NVIDIA 官方权限说明](https://developer.nvidia.com/ERR_NVGPUCTRPERM)。

@@ -81,3 +81,15 @@ benchmarks/results/vector_add_rtx3080ti_fp32.csv
 2. 它与 Profiler 测得的 DRAM Throughput 有什么差别？
 3. 为什么小尺寸下两者存在几微秒差异？
 4. P20 到 P80 的范围是否说明测量稳定？
+
+## 11. Nsight Compute 分析入口
+
+`profile.py` 默认先预热 10 次，再执行一次待分析的 Kernel。下面的命令跳过 10 次
+预热，只捕获最后一次调用：
+
+```powershell
+ncu --set basic --kernel-name regex:vector_add_kernel --launch-skip 10 `
+    --launch-count 1 python llm_kernels/vector_add/profile.py
+```
+
+第一轮只观察 Duration、Memory Throughput 和 Compute Throughput，不急着分析全部指标。
