@@ -15,12 +15,14 @@ PyTorch 参考实现 → Triton Kernel → 正确性测试 → 性能基准 → 
 
 ## 当前里程碑
 
-目前只研究 Phase 0 的 Vector Add。只有当前算子拥有正确实现、可复现的 Benchmark
-以及完整的性能解释后，才会进入下一个算子。
+Vector Add 已完成正确性、Benchmark、Profiler 和图表闭环。当前只研究 Phase 0 的
+Reduction：先建立可信的按行求和参考实现，再设计第一个 Triton Kernel。暂不进入
+Transpose、Softmax 或 Attention。
 
 | 算子 | PyTorch | Triton | CUDA | 研究重点 |
 |---|---:|---:|---:|---|
 | Vector Add | ✓ | ✓ | 计划中 | 显存带宽 |
+| Reduction（按行求和） | ✓ | 进行中 | 计划中 | 并行归约 |
 
 ## 当前关键结果
 
@@ -88,12 +90,16 @@ llm-kernel-lab/
 │   ├── environment.md
 │   └── gpu-performance-playbook.md
 └── llm_kernels/
-    └── vector_add/
+    ├── vector_add/
         ├── torch_impl.py
         ├── triton_impl.py
         ├── test.py
         ├── benchmark.py
         ├── profile.py
+        └── README.md
+    └── reduction/
+        ├── torch_impl.py
+        ├── test.py
         └── README.md
 ```
 
