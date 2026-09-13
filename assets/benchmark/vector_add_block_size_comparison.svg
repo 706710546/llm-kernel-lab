@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560">
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<g font-family="Microsoft YaHei, Noto Sans CJK SC, Arial, sans-serif">
+<text x="60.00" y="38.00" font-size="22" font-weight="700" fill="#111827">Vector Add：不同 Triton Block Size 的性能比较</text>
+<text x="60.00" y="62.00" font-size="13" fill="#6B7280">RTX 3080 Ti · FP32 · 阴影表示 P20–P80 延迟范围</text>
+<line x1="770.00" y1="54.00" x2="794.00" y2="54.00" stroke="#2563EB" stroke-width="3"/>
+<text x="801.00" y="59.00" font-size="12" fill="#374151">Block 128</text>
+<line x1="895.00" y1="54.00" x2="919.00" y2="54.00" stroke="#EA580C" stroke-width="3"/>
+<text x="926.00" y="59.00" font-size="12" fill="#374151">Block 256</text>
+<line x1="1020.00" y1="54.00" x2="1044.00" y2="54.00" stroke="#16A34A" stroke-width="3"/>
+<text x="1051.00" y="59.00" font-size="12" fill="#374151">Block 512</text>
+<text x="80.00" y="81.00" font-size="18" font-weight="600" fill="#111827">P50 延迟</text>
+<line x1="80.00" y1="455.00" x2="535.00" y2="455.00" stroke="#E5E7EB" stroke-width="1"/>
+<text x="70.00" y="459.00" text-anchor="end" font-size="12" fill="#4B5563">4</text>
+<line x1="80.00" y1="367.50" x2="535.00" y2="367.50" stroke="#E5E7EB" stroke-width="1"/>
+<text x="70.00" y="371.50" text-anchor="end" font-size="12" fill="#4B5563">16</text>
+<line x1="80.00" y1="280.00" x2="535.00" y2="280.00" stroke="#E5E7EB" stroke-width="1"/>
+<text x="70.00" y="284.00" text-anchor="end" font-size="12" fill="#4B5563">64</text>
+<line x1="80.00" y1="192.50" x2="535.00" y2="192.50" stroke="#E5E7EB" stroke-width="1"/>
+<text x="70.00" y="196.50" text-anchor="end" font-size="12" fill="#4B5563">256</text>
+<line x1="80.00" y1="105.00" x2="535.00" y2="105.00" stroke="#E5E7EB" stroke-width="1"/>
+<text x="70.00" y="109.00" text-anchor="end" font-size="12" fill="#4B5563">1024</text>
+<line x1="80.00" y1="105.00" x2="80.00" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="80.00" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^10</text>
+<line x1="136.88" y1="105.00" x2="136.88" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="136.88" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^12</text>
+<line x1="193.75" y1="105.00" x2="193.75" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="193.75" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^14</text>
+<line x1="250.62" y1="105.00" x2="250.62" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="250.62" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^16</text>
+<line x1="307.50" y1="105.00" x2="307.50" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="307.50" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^18</text>
+<line x1="364.38" y1="105.00" x2="364.38" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="364.38" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^20</text>
+<line x1="421.25" y1="105.00" x2="421.25" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="421.25" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^22</text>
+<line x1="478.12" y1="105.00" x2="478.12" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="478.12" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^24</text>
+<line x1="535.00" y1="105.00" x2="535.00" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="535.00" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^26</text>
+<line x1="80.00" y1="455.00" x2="535.00" y2="455.00" stroke="#6B7280" stroke-width="1.2"/>
+<line x1="80.00" y1="105.00" x2="80.00" y2="455.00" stroke="#6B7280" stroke-width="1.2"/>
+<text x="307.50" y="503.00" text-anchor="middle" font-size="13" fill="#374151">元素数量 N（对数刻度）</text>
+<text x="26.00" y="280.00" text-anchor="middle" font-size="13" fill="#374151" transform="rotate(-90 26.00 280.00)">延迟（μs，对数刻度）</text>
+<polygon points="80.00,439.42 136.88,439.42 193.75,439.42 250.62,427.91 307.50,402.32 364.38,348.84 421.25,276.56 478.12,193.01 535.00,106.66 535.00,108.50 478.12,195.08 421.25,278.50 364.38,351.92 307.50,409.75 250.62,439.42 193.75,453.50 136.88,453.50 80.00,453.50" fill="#2563EB" fill-opacity="0.1" stroke="none"/>
+<polyline points="80.00,453.50 136.88,453.50 193.75,439.42 250.62,427.91 307.50,409.75 364.38,351.92 421.25,277.52 478.12,194.79 535.00,108.10" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linejoin="round"/>
+<circle cx="80.00" cy="453.50" r="3.2" fill="#2563EB"/>
+<circle cx="136.88" cy="453.50" r="3.2" fill="#2563EB"/>
+<circle cx="193.75" cy="439.42" r="3.2" fill="#2563EB"/>
+<circle cx="250.62" cy="427.91" r="3.2" fill="#2563EB"/>
+<circle cx="307.50" cy="409.75" r="3.2" fill="#2563EB"/>
+<circle cx="364.38" cy="351.92" r="3.2" fill="#2563EB"/>
+<circle cx="421.25" cy="277.52" r="3.2" fill="#2563EB"/>
+<circle cx="478.12" cy="194.79" r="3.2" fill="#2563EB"/>
+<circle cx="535.00" cy="108.10" r="3.2" fill="#2563EB"/>
+<polygon points="80.00,439.42 136.88,439.42 193.75,439.42 250.62,439.42 307.50,402.32 364.38,348.84 421.25,275.61 478.12,192.75 535.00,105.83 535.00,108.30 478.12,194.55 421.25,278.50 364.38,355.16 307.50,409.75 250.62,439.42 193.75,453.50 136.88,453.50 80.00,453.50" fill="#EA580C" fill-opacity="0.1" stroke="none"/>
+<polyline points="80.00,453.50 136.88,453.50 193.75,453.50 250.62,439.42 307.50,409.75 364.38,351.92 421.25,277.52 478.12,194.29 535.00,108.10" fill="none" stroke="#EA580C" stroke-width="2.5" stroke-linejoin="round"/>
+<circle cx="80.00" cy="453.50" r="3.2" fill="#EA580C"/>
+<circle cx="136.88" cy="453.50" r="3.2" fill="#EA580C"/>
+<circle cx="193.75" cy="453.50" r="3.2" fill="#EA580C"/>
+<circle cx="250.62" cy="439.42" r="3.2" fill="#EA580C"/>
+<circle cx="307.50" cy="409.75" r="3.2" fill="#EA580C"/>
+<circle cx="364.38" cy="351.92" r="3.2" fill="#EA580C"/>
+<circle cx="421.25" cy="277.52" r="3.2" fill="#EA580C"/>
+<circle cx="478.12" cy="194.29" r="3.2" fill="#EA580C"/>
+<circle cx="535.00" cy="108.10" r="3.2" fill="#EA580C"/>
+<polygon points="80.00,439.42 136.88,439.42 193.75,439.42 250.62,439.42 307.50,402.32 364.38,351.92 421.25,276.56 478.12,193.01 535.00,106.40 535.00,108.30 478.12,195.08 421.25,278.50 364.38,355.16 307.50,409.75 250.62,439.42 193.75,453.50 136.88,453.50 80.00,453.50" fill="#16A34A" fill-opacity="0.1" stroke="none"/>
+<polyline points="80.00,439.42 136.88,453.50 193.75,439.42 250.62,439.42 307.50,409.75 364.38,355.16 421.25,278.50 478.12,194.55 535.00,107.84" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linejoin="round"/>
+<circle cx="80.00" cy="439.42" r="3.2" fill="#16A34A"/>
+<circle cx="136.88" cy="453.50" r="3.2" fill="#16A34A"/>
+<circle cx="193.75" cy="439.42" r="3.2" fill="#16A34A"/>
+<circle cx="250.62" cy="439.42" r="3.2" fill="#16A34A"/>
+<circle cx="307.50" cy="409.75" r="3.2" fill="#16A34A"/>
+<circle cx="364.38" cy="355.16" r="3.2" fill="#16A34A"/>
+<circle cx="421.25" cy="278.50" r="3.2" fill="#16A34A"/>
+<circle cx="478.12" cy="194.55" r="3.2" fill="#16A34A"/>
+<circle cx="535.00" cy="107.84" r="3.2" fill="#16A34A"/>
+<text x="680.00" y="81.00" font-size="18" font-weight="600" fill="#111827">有效显存带宽</text>
+<line x1="680.00" y1="455.00" x2="1135.00" y2="455.00" stroke="#E5E7EB" stroke-width="1"/>
+<text x="670.00" y="459.00" text-anchor="end" font-size="12" fill="#4B5563">0</text>
+<line x1="680.00" y1="377.22" x2="1135.00" y2="377.22" stroke="#E5E7EB" stroke-width="1"/>
+<text x="670.00" y="381.22" text-anchor="end" font-size="12" fill="#4B5563">200</text>
+<line x1="680.00" y1="299.44" x2="1135.00" y2="299.44" stroke="#E5E7EB" stroke-width="1"/>
+<text x="670.00" y="303.44" text-anchor="end" font-size="12" fill="#4B5563">400</text>
+<line x1="680.00" y1="221.67" x2="1135.00" y2="221.67" stroke="#E5E7EB" stroke-width="1"/>
+<text x="670.00" y="225.67" text-anchor="end" font-size="12" fill="#4B5563">600</text>
+<line x1="680.00" y1="143.89" x2="1135.00" y2="143.89" stroke="#E5E7EB" stroke-width="1"/>
+<text x="670.00" y="147.89" text-anchor="end" font-size="12" fill="#4B5563">800</text>
+<line x1="680.00" y1="105.00" x2="1135.00" y2="105.00" stroke="#E5E7EB" stroke-width="1"/>
+<text x="670.00" y="109.00" text-anchor="end" font-size="12" fill="#4B5563">900</text>
+<line x1="680.00" y1="105.00" x2="680.00" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="680.00" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^10</text>
+<line x1="736.88" y1="105.00" x2="736.88" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="736.88" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^12</text>
+<line x1="793.75" y1="105.00" x2="793.75" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="793.75" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^14</text>
+<line x1="850.62" y1="105.00" x2="850.62" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="850.62" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^16</text>
+<line x1="907.50" y1="105.00" x2="907.50" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="907.50" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^18</text>
+<line x1="964.38" y1="105.00" x2="964.38" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="964.38" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^20</text>
+<line x1="1021.25" y1="105.00" x2="1021.25" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="1021.25" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^22</text>
+<line x1="1078.12" y1="105.00" x2="1078.12" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="1078.12" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^24</text>
+<line x1="1135.00" y1="105.00" x2="1135.00" y2="455.00" stroke="#F3F4F6" stroke-width="1"/>
+<text x="1135.00" y="477.00" text-anchor="middle" font-size="11" fill="#4B5563">2^26</text>
+<line x1="680.00" y1="455.00" x2="1135.00" y2="455.00" stroke="#6B7280" stroke-width="1.2"/>
+<line x1="680.00" y1="105.00" x2="680.00" y2="455.00" stroke="#6B7280" stroke-width="1.2"/>
+<text x="907.50" y="503.00" text-anchor="middle" font-size="13" fill="#374151">元素数量 N（对数刻度）</text>
+<text x="626.00" y="280.00" text-anchor="middle" font-size="13" fill="#374151" transform="rotate(-90 626.00 280.00)">有效带宽（GB/s）</text>
+<polyline points="680.00,453.83 736.88,450.33 793.75,440.07 850.62,405.22 907.50,305.67 964.38,216.07 1021.25,160.93 1078.12,137.89 1135.00,133.75" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linejoin="round"/>
+<circle cx="680.00" cy="453.83" r="3.2" fill="#2563EB"/>
+<circle cx="736.88" cy="450.33" r="3.2" fill="#2563EB"/>
+<circle cx="793.75" cy="440.07" r="3.2" fill="#2563EB"/>
+<circle cx="850.62" cy="405.22" r="3.2" fill="#2563EB"/>
+<circle cx="907.50" cy="305.67" r="3.2" fill="#2563EB"/>
+<circle cx="964.38" cy="216.07" r="3.2" fill="#2563EB"/>
+<circle cx="1021.25" cy="160.93" r="3.2" fill="#2563EB"/>
+<circle cx="1078.12" cy="137.89" r="3.2" fill="#2563EB"/>
+<circle cx="1135.00" cy="133.75" r="3.2" fill="#2563EB"/>
+<polyline points="680.00,453.83 736.88,450.33 793.75,436.33 850.62,395.27 907.50,305.67 964.38,216.07 1021.25,160.93 1078.12,140.35 1135.00,133.75" fill="none" stroke="#EA580C" stroke-width="2.5" stroke-linejoin="round"/>
+<circle cx="680.00" cy="453.83" r="3.2" fill="#EA580C"/>
+<circle cx="736.88" cy="450.33" r="3.2" fill="#EA580C"/>
+<circle cx="793.75" cy="436.33" r="3.2" fill="#EA580C"/>
+<circle cx="850.62" cy="395.27" r="3.2" fill="#EA580C"/>
+<circle cx="907.50" cy="305.67" r="3.2" fill="#EA580C"/>
+<circle cx="964.38" cy="216.07" r="3.2" fill="#EA580C"/>
+<circle cx="1021.25" cy="160.93" r="3.2" fill="#EA580C"/>
+<circle cx="1078.12" cy="140.35" r="3.2" fill="#EA580C"/>
+<circle cx="1135.00" cy="133.75" r="3.2" fill="#EA580C"/>
+<polyline points="680.00,454.07 736.88,450.33 793.75,440.07 850.62,395.27 907.50,305.67 964.38,203.49 1021.25,156.33 1078.12,139.06 1135.00,135.09" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linejoin="round"/>
+<circle cx="680.00" cy="454.07" r="3.2" fill="#16A34A"/>
+<circle cx="736.88" cy="450.33" r="3.2" fill="#16A34A"/>
+<circle cx="793.75" cy="440.07" r="3.2" fill="#16A34A"/>
+<circle cx="850.62" cy="395.27" r="3.2" fill="#16A34A"/>
+<circle cx="907.50" cy="305.67" r="3.2" fill="#16A34A"/>
+<circle cx="964.38" cy="203.49" r="3.2" fill="#16A34A"/>
+<circle cx="1021.25" cy="156.33" r="3.2" fill="#16A34A"/>
+<circle cx="1078.12" cy="139.06" r="3.2" fill="#16A34A"/>
+<circle cx="1135.00" cy="135.09" r="3.2" fill="#16A34A"/>
+</g>
+</svg>

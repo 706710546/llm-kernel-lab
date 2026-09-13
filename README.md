@@ -34,6 +34,11 @@ RTX 3080 Ti 上的大尺寸 FP32 Vector Add：
 这些数据共同证明当前 Vector Add 是显存带宽受限，而不是计算能力受限。完整分析见
 [Nsight Compute 实验报告](benchmarks/results/vector_add_rtx3080ti_ncu_basic.md)。
 
+![Vector Add Block Size 性能比较](assets/benchmark/vector_add_block_size_comparison.svg)
+
+三种 Block Size 在大尺寸下都进入约 810～826 GB/s 的带宽平台。它们之间的差异很小，
+不足以支持某个 Block Size 显著更快的结论。
+
 ## 已验证的开发环境
 
 - Windows 11、Python 3.11.9
@@ -75,6 +80,8 @@ llm-kernel-lab/
 ├── LICENSE
 ├── pyproject.toml
 ├── requirements.txt
+├── scripts/
+│   └── plot_vector_add.py
 ├── benchmarks/
 │   └── results/
 ├── docs/

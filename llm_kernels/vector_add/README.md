@@ -110,3 +110,18 @@ Occupancy 没有达到理论值，但显存系统已经接近饱和，因此不�
 ```text
 benchmarks/results/vector_add_rtx3080ti_ncu_basic.md
 ```
+
+## 12. Block Size 对比图
+
+使用 `128`、`256`、`512` 三种 Triton Block Size 进行实测：
+
+![Block Size 性能比较](../../assets/benchmark/vector_add_block_size_comparison.svg)
+
+在大尺寸输入下，三条有效带宽曲线最终都达到约 810～826 GB/s。Block Size 改变了
+Program 数量，但没有明显改变带宽平台，进一步支持显存带宽是主要瓶颈的判断。
+
+重新生成图表：
+
+```powershell
+python scripts/plot_vector_add.py
+```
