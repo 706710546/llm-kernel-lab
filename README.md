@@ -22,6 +22,18 @@ PyTorch 参考实现 → Triton Kernel → 正确性测试 → 性能基准 → 
 |---|---:|---:|---:|---|
 | Vector Add | ✓ | ✓ | 计划中 | 显存带宽 |
 
+## 当前关键结果
+
+RTX 3080 Ti 上的大尺寸 FP32 Vector Add：
+
+- 独立 Benchmark 有效带宽约为 809～826 GB/s；
+- Nsight Compute 测得 DRAM Throughput 为 91.67%；
+- Compute (SM) Throughput 为 7.53%；
+- PyTorch 与 Triton 在大尺寸下性能基本相同。
+
+这些数据共同证明当前 Vector Add 是显存带宽受限，而不是计算能力受限。完整分析见
+[Nsight Compute 实验报告](benchmarks/results/vector_add_rtx3080ti_ncu_basic.md)。
+
 ## 已验证的开发环境
 
 - Windows 11、Python 3.11.9
@@ -74,6 +86,7 @@ llm-kernel-lab/
         ├── triton_impl.py
         ├── test.py
         ├── benchmark.py
+        ├── profile.py
         └── README.md
 ```
 

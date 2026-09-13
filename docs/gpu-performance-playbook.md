@@ -24,4 +24,8 @@
   816–818 GB/s；小尺寸输入的耗时约为 4–6 微秒，主要受固定启动和计时开销影响。
 - 观察：第一个 Triton 版本在大尺寸下没有明显领先 PyTorch。这支持“带宽受限”的
   假设，但不能支持“Triton 天生比 PyTorch 快”这样的笼统结论。
-- 下一步问题：使用 Profiler 测量真实 DRAM Throughput，再判断剩余差距来自哪里。
+- Profiler 证据：Nsight Compute 测得 DRAM Throughput 91.67%、Compute Throughput
+  7.53%、Achieved Occupancy 86.10%。这直接验证了显存带宽瓶颈。
+- 方法结论：Occupancy 不是越高越好。分析优化方向时，应先看最接近饱和的硬件资源；
+  当前显存吞吐比计算吞吐和 Occupancy 更能解释性能上限。
+- 下一步问题：理解合并访存为什么能让 DRAM Throughput 达到 90% 以上。

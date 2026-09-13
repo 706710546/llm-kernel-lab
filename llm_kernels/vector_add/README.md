@@ -92,4 +92,21 @@ ncu --set basic --kernel-name regex:vector_add_kernel --launch-skip 10 `
     --launch-count 1 python llm_kernels/vector_add/profile.py
 ```
 
-第一轮只观察 Duration、Memory Throughput 和 Compute Throughput，不急着分析全部指标。
+第一次实测结果：
+
+| 指标 | 测量值 |
+|---|---:|
+| Duration | 247.10 μs |
+| DRAM Throughput | 91.67% |
+| Compute (SM) Throughput | 7.53% |
+| Achieved Occupancy | 86.10% |
+
+DRAM Throughput 远高于 Compute Throughput，直接验证了 Memory Bound 判断。虽然实际
+Occupancy 没有达到理论值，但显存系统已经接近饱和，因此不能假设把 Occupancy 提高到
+100% 就一定能获得相同比例的加速。
+
+详细实验信息和推导见：
+
+```text
+benchmarks/results/vector_add_rtx3080ti_ncu_basic.md
+```
