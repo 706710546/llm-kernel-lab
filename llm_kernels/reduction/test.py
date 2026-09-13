@@ -11,15 +11,16 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from llm_kernels.reduction.torch_impl import row_sum_torch
+from llm_kernels.reduction.triton_impl import row_sum_triton
 
 
 def test_known_example() -> None:
     """先用可以手算的例子确认数学定义。"""
     x = torch.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], device="cuda")
-    actual = row_sum_torch(x)
+    actual = row_sum_triton(x)
     expected = torch.tensor([6.0, 15.0], device="cuda")
     torch.testing.assert_close(actual, expected, rtol=0, atol=0)
-    print("通过 手算样例：[[1, 2, 3], [4, 5, 6]] → [6, 15]")
+    print("通过 Triton 手算样例：[[1, 2, 3], [4, 5, 6]] → [6, 15]")
 
 
 def test_shapes() -> None:
@@ -28,9 +29,10 @@ def test_shapes() -> None:
     for dtype in (torch.float32, torch.float16):
         for rows, columns in test_shapes:
             x = torch.randn((rows, columns), device="cuda", dtype=dtype)
-            actual = row_sum_torch(x)
-            expected = torch.sum(x, dim=1)
-            torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+            expected = row_sum_torch(x)
+            actual = row_sum_triton(x)
+            tolerance = {torch.float32: (1e-5, 1e-5), torch.float16: (1e-2, 1e-2)}[dtype]
+            torch.testing.assert_close(actual, expected, rtol=tolerance[0], atol=tolerance[1])
             assert actual.shape == (rows,)
             print(
                 f"通过 dtype={str(dtype).removeprefix('torch.'):7s} "
@@ -43,9 +45,8 @@ def main() -> None:
         raise RuntimeError("当前环境无法使用 CUDA")
     test_known_example()
     test_shapes()
-    print("所有 Reduction PyTorch 参考实现测试均已通过。")
+    print("所有 Reduction Triton V0 正确性测试均已通过。")
 
 
 if __name__ == "__main__":
     main()
-

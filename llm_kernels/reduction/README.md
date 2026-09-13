@@ -54,9 +54,42 @@ y[0] = x[0, 0] + x[0, 1] + ... + x[0, N-1]
 y = x.sum(dim=-1)
 ```
 
-当前只完成数学定义、输入输出形状和正确性测试。下一步才会设计第一个 Triton Kernel。
+当前已完成数学定义、输入输出形状、PyTorch 参考实现和 Triton V0 正确性测试。
 
-## 4. 未来实现路线
+## 4. Triton V0 设计
+
+最简单的映射是：
+
+```text
+一个输出 y[i]
+        ↓
+一个 Triton Program
+        ↓
+读取输入 x[i, :]
+        ↓
+tl.sum 在 Program 内归约
+        ↓
+写入 y[i]
+```
+
+例如输入形状为 `[7, 1003]`：
+
+```text
+Grid = (7,)
+Program 0 → 第 0 行 → 输出 y[0]
+Program 1 → 第 1 行 → 输出 y[1]
+...
+Program 6 → 第 6 行 → 输出 y[6]
+```
+
+`tl.arange` 的长度必须在编译期确定，因此 V0 会将 `1003` 向上补齐到下一个 2 的幂
+`1024`。后面额外的 21 个位置通过 Mask 屏蔽，并以 `0` 参与求和；这不会改变结果。
+
+FP16 输入不会直接以 FP16 连续累加。V0 会先转换为 FP32，再执行 `tl.sum`，最后按输出
+Tensor 的类型写回。这是因为浮点加法不满足严格结合律：并行归约的加法顺序与 PyTorch
+内部实现可能不同，低精度累加会放大这种差异。
+
+## 5. 未来实现路线
 
 ```text
 V0：一个 Triton Program 处理一整行
@@ -77,6 +110,5 @@ V2：进入 CUDA Shared Memory 与 Warp Reduction
 | PyTorch 参考实现 | ✓ |
 | 手算样例 | ✓ |
 | 边界形状测试 | ✓ |
-| Triton V0 | 尚未开始 |
+| Triton V0 | ✓ |
 | Benchmark / Profiler | 尚未开始 |
-
