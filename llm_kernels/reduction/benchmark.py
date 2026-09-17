@@ -12,12 +12,20 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from llm_kernels.reduction.torch_impl import row_sum_torch
-from llm_kernels.reduction.triton_impl import row_sum_triton
+from llm_kernels.reduction.triton_impl import MAX_BLOCK_SIZE, row_sum_triton
+from llm_kernels.reduction.triton_v1_impl import row_sum_triton_v1
 
 
 WARMUP_MS = 25
 REPEAT_MS = 100
-ROWS = 8_192
+BENCHMARK_SHAPES = (
+    (8_192, 128),
+    (8_192, 512),
+    (8_192, 2_048),
+    (8_192, 8_192),
+    (256, 65_536),
+    (128, 131_072),
+)
 
 
 def effective_bandwidth_gbps(
@@ -48,27 +56,29 @@ def main() -> None:
         raise RuntimeError("当前环境无法使用 CUDA")
 
     dtype = torch.float32
-    column_sizes = [128, 512, 2_048, 8_192]
     print("provider,M,N,p50_us,p20_us,p80_us,effective_bandwidth_GBps")
 
-    for columns in column_sizes:
-        x = torch.randn((ROWS, columns), device="cuda", dtype=dtype)
+    for rows, columns in BENCHMARK_SHAPES:
+        x = torch.randn((rows, columns), device="cuda", dtype=dtype)
 
         providers = {
             "pytorch": lambda: row_sum_torch(x),
-            "triton": lambda: row_sum_triton(x),
+            "triton_v1": lambda: row_sum_triton_v1(x),
         }
+        if columns <= MAX_BLOCK_SIZE:
+            providers["triton_v0"] = lambda: row_sum_triton(x)
+
         for provider, function in providers.items():
             p50_ms, p20_ms, p80_ms = measure_ms(function)
             bandwidth = effective_bandwidth_gbps(
-                ROWS,
+                rows,
                 columns,
                 x.element_size(),
                 x.element_size(),
                 p50_ms,
             )
             print(
-                f"{provider},{ROWS},{columns},{p50_ms * 1000:.3f},"
+                f"{provider},{rows},{columns},{p50_ms * 1000:.3f},"
                 f"{p20_ms * 1000:.3f},{p80_ms * 1000:.3f},{bandwidth:.2f}"
             )
 

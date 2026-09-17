@@ -16,13 +16,13 @@ PyTorch 参考实现 → Triton Kernel → 正确性测试 → 性能基准 → 
 ## 当前里程碑
 
 Vector Add 已完成正确性、Benchmark、Profiler 和图表闭环。Reduction 已完成可信的
-PyTorch 参考实现和 Triton V0 正确性闭环；下一步是逐行理解这个 Kernel 的映射和归约
-过程，之后才会进入 Benchmark。暂不进入 Transpose、Softmax 或 Attention。
+PyTorch 参考实现、Triton V0 单 Program 归约，以及 Triton V1 两阶段分块归约的正确性、
+Benchmark 与 NCU 分析闭环。暂不进入 Transpose、Softmax 或 Attention。
 
 | 算子 | PyTorch | Triton | CUDA | 研究重点 |
 |---|---:|---:|---:|---|
 | Vector Add | ✓ | ✓ | 计划中 | 显存带宽 |
-| Reduction（按行求和） | ✓ | V0 ✓ | 计划中 | 并行归约 |
+| Reduction（按行求和） | ✓ | V0 / V1 ✓ | 计划中 | 并行归约 |
 
 ## 当前关键结果
 
@@ -41,6 +41,14 @@ RTX 3080 Ti 上的大尺寸 FP32 Vector Add：
 三种 Block Size 在大尺寸下都进入约 810～826 GB/s 的带宽平台。它们之间的差异很小，
 不足以支持某个 Block Size 显著更快的结论。
 
+RTX 3080 Ti 上的 FP32 Row Sum V0 / V1：
+
+- V0 与 V1 Stage 1 的 DRAM Throughput 都约为 92.8%；
+- V1 Stage 1 的高 Occupancy 没有缩短时间，说明两者都受显存带宽限制；
+- V1 的第二阶段约为 3.58 μs，是支持超过 65,536 列所付出的额外成本。
+
+完整分析见 [Row Sum V0 / V1 Nsight Compute 实验报告](benchmarks/results/reduction_v0_v1_rtx3080ti_ncu_basic.md)。
+
 ## 已验证的开发环境
 
 - Windows 11、Python 3.11.9
@@ -58,6 +66,8 @@ RTX 3080 Ti 上的大尺寸 FP32 Vector Add：
 ```powershell
 python llm_kernels/vector_add/test.py
 python llm_kernels/vector_add/benchmark.py
+python llm_kernels/reduction/test.py
+python llm_kernels/reduction/benchmark.py
 ```
 
 完成正确性和 Benchmark 后，可以用 Nsight Compute 捕获一次预热后的 Kernel：
@@ -99,8 +109,11 @@ llm-kernel-lab/
         └── README.md
     └── reduction/
         ├── torch_impl.py
-        ├── triton_impl.py
+        ├── triton_impl.py       # V0：一行一个 Program
+        ├── triton_v1_impl.py    # V1：两阶段分块归约
         ├── test.py
+        ├── benchmark.py
+        ├── profile.py
         └── README.md
 ```
 

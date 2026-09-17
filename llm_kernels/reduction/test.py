@@ -12,6 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from llm_kernels.reduction.torch_impl import row_sum_torch
 from llm_kernels.reduction.triton_impl import row_sum_triton
+from llm_kernels.reduction.triton_v1_impl import row_sum_triton_v1
 
 
 def test_known_example() -> None:
@@ -31,11 +32,29 @@ def test_shapes() -> None:
             x = torch.randn((rows, columns), device="cuda", dtype=dtype)
             expected = row_sum_torch(x)
             actual = row_sum_triton(x)
-            tolerance = {torch.float32: (1e-5, 1e-5), torch.float16: (1e-2, 1e-2)}[dtype]
+            # 并行归约与 PyTorch 的加法顺序不同；FP32 允许很小的绝对误差。
+            tolerance = {torch.float32: (1e-5, 1e-4), torch.float16: (1e-2, 1e-2)}[dtype]
             torch.testing.assert_close(actual, expected, rtol=tolerance[0], atol=tolerance[1])
             assert actual.shape == (rows,)
             print(
                 f"通过 dtype={str(dtype).removeprefix('torch.'):7s} "
+                f"shape=({rows:,}, {columns:,}) → ({rows:,})"
+            )
+
+
+def test_v1_shapes() -> None:
+    """确认两阶段 V1 覆盖普通行宽和 V0 上限之外的行宽。"""
+    test_shapes = ((1, 17), (31, 1_003), (64, 4_096), (3, 65_537), (2, 131_072), (8, 0))
+    for dtype in (torch.float32, torch.float16):
+        for rows, columns in test_shapes:
+            x = torch.randn((rows, columns), device="cuda", dtype=dtype)
+            expected = row_sum_torch(x)
+            actual = row_sum_triton_v1(x)
+            tolerance = {torch.float32: (1e-5, 1e-4), torch.float16: (1e-2, 1e-2)}[dtype]
+            torch.testing.assert_close(actual, expected, rtol=tolerance[0], atol=tolerance[1])
+            assert actual.shape == (rows,)
+            print(
+                f"通过 V1 dtype={str(dtype).removeprefix('torch.'):7s} "
                 f"shape=({rows:,}, {columns:,}) → ({rows:,})"
             )
 
@@ -45,7 +64,8 @@ def main() -> None:
         raise RuntimeError("当前环境无法使用 CUDA")
     test_known_example()
     test_shapes()
-    print("所有 Reduction Triton V0 正确性测试均已通过。")
+    test_v1_shapes()
+    print("所有 Reduction Triton V0 / V1 正确性测试均已通过。")
 
 
 if __name__ == "__main__":

@@ -89,12 +89,51 @@ FP16 输入不会直接以 FP16 连续累加。V0 会先转换为 FP32，再执�
 Tensor 的类型写回。这是因为浮点加法不满足严格结合律：并行归约的加法顺序与 PyTorch
 内部实现可能不同，低精度累加会放大这种差异。
 
-## 5. 未来实现路线
+## 5. Triton V1：两阶段分块归约
+
+V0 的一个 Program 必须一次读取、累加一整行。因此它的 `BLOCK_SIZE` 最多是
+`65,536`，更宽的行无法处理。
+
+V1 将一行分块。固定每块 `1,024` 个元素，分两个 kernel 完成：
+
+```text
+输入 x，形状 [M, N]
+        │
+        ├─ Stage 1：每个 Program 处理 row 的一个块
+        │             将块内 1,024 个元素求和
+        ▼
+partials，形状 [M, ceil(N / 1024)]，元素类型 FP32
+        │
+        ├─ Stage 2：每个 Program 处理 partials 的一行
+        │             合并这一行的所有局部和
+        ▼
+输出 y，形状 [M]
+```
+
+例如 `x` 的形状为 `[2, 2,500]`：
+
+```text
+Stage 1：每行拆为 3 块
+  Program (0, 0) → x[0,    0:1024] → partials[0, 0]
+  Program (0, 1) → x[0, 1024:2048] → partials[0, 1]
+  Program (0, 2) → x[0, 2048:2500] → partials[0, 2]（末尾用 Mask 补 0）
+  Program (1, *) → 处理第 1 行的三个块
+
+Stage 2：每行合并 3 个局部和
+  Program 0 → partials[0, :] → y[0]
+  Program 1 → partials[1, :] → y[1]
+```
+
+V1 的代价是：多了一次写入 `partials` 和一次读取 `partials`，还启动了第二个 kernel。
+因此对于 V0 已能支持的短行，V1 不保证更快；它的主要价值是支持更宽的行。中间结果采用
+FP32，避免 FP16 在每个块完成时就发生额外舍入。
+
+## 6. 当前实现路线
 
 ```text
 V0：一个 Triton Program 处理一整行
         ↓
-V1：研究更大行宽时的分块与中间结果
+V1：分块写出 FP32 局部和，再进行第二阶段归约
         ↓
 V2：进入 CUDA Shared Memory 与 Warp Reduction
 ```
@@ -111,4 +150,34 @@ V2：进入 CUDA Shared Memory 与 Warp Reduction
 | 手算样例 | ✓ |
 | 边界形状测试 | ✓ |
 | Triton V0 | ✓ |
-| Benchmark / Profiler | 尚未开始 |
+| Triton V1 两阶段归约 | ✓ |
+| V0 / V1 Benchmark | ✓ |
+| NCU Profiler 入口 | ✓ |
+
+## 7. Nsight Compute 验证
+
+对 V1 而言，不能只捕获一次 Kernel：它有两个阶段，需要分别分析。
+
+```powershell
+# V0：一个 Kernel，一行对应一个 Program
+ncu --set basic --kernel-name regex:row_sum_kernel --launch-skip 10 `
+    --launch-count 1 python llm_kernels/reduction/profile.py --version v0
+
+# V1 Stage 1：分块读取原始输入并写入 partials
+ncu --set basic --kernel-name regex:row_sum_stage1_kernel --launch-skip 10 `
+    --launch-count 1 python llm_kernels/reduction/profile.py --version v1
+
+# V1 Stage 2：读取 partials 并合并为最终输出
+ncu --set basic --kernel-name regex:row_sum_stage2_kernel --launch-skip 10 `
+    --launch-count 1 python llm_kernels/reduction/profile.py --version v1
+```
+
+默认输入为 `[256, 65,536]` 的 FP32 矩阵。分析得到以下结论：
+
+1. V0 和 V1 Stage 1 的 DRAM Throughput 都约为 92.8%，两者都是 Memory-Bound；
+2. V1 Stage 1 虽然 Occupancy 更高，但无法突破已饱和的显存带宽；
+3. V1 Stage 2 的 GPU 利用率低，但只耗时约 3.58 μs，当前不是优化重点；
+4. V0 在 `N ≤ 65,536` 时略快；更宽的行使用 V1。
+
+完整的原始指标、推导过程和工程结论见
+[V0 / V1 Nsight Compute 实验报告](../../benchmarks/results/reduction_v0_v1_rtx3080ti_ncu_basic.md)。
