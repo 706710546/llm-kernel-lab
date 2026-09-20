@@ -1,4 +1,4 @@
-"""测量 PyTorch 和 Triton Vector Add 的延迟与有效带宽。"""
+"""测量 PyTorch、Triton 和 CUDA C++ Vector Add 的延迟与有效带宽。"""
 
 from pathlib import Path
 import sys
@@ -11,6 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from llm_kernels.vector_add.cuda_impl import vector_add_cuda
 from llm_kernels.vector_add.torch_impl import vector_add_torch
 from llm_kernels.vector_add.triton_impl import vector_add_triton
 
@@ -42,6 +43,13 @@ def main() -> None:
 
     dtype = torch.float32
     sizes = [2**power for power in range(10, 27, 2)]
+
+    # CUDA Extension 第一次调用会触发 C++/CUDA 编译。先在计时区间外完成加载，
+    # 避免把一次性的编译成本误认为 Kernel 执行时间。
+    compile_input = torch.zeros(1, device="cuda", dtype=dtype)
+    vector_add_cuda(compile_input, compile_input)
+    torch.cuda.synchronize()
+
     print("provider,N,p50_us,p20_us,p80_us,effective_bandwidth_GBps")
 
     for size in sizes:
@@ -51,6 +59,7 @@ def main() -> None:
         providers = {
             "pytorch": lambda: vector_add_torch(x, y),
             "triton": lambda: vector_add_triton(x, y),
+            "cuda": lambda: vector_add_cuda(x, y),
         }
         for provider, function in providers.items():
             p50_ms, p20_ms, p80_ms = measure_ms(function)

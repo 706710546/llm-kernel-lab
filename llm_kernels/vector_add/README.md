@@ -125,3 +125,111 @@ Program 数量，但没有明显改变带宽平台，进一步支持显存带宽
 ```powershell
 python scripts/plot_vector_add.py
 ```
+
+## 13. CUDA C++ Extension
+
+CUDA 版本用于理解 Triton 隐藏起来的 Host / Device、Grid / Block / Thread 映射。当前版本
+支持连续的 FP32 CUDA Tensor，并允许配置 `threads_per_block`；每个 CUDA Thread 负责一个元素：
+
+```text
+index = blockIdx.x × blockDim.x + threadIdx.x
+```
+
+源码分工：
+
+```text
+cuda_impl.py                 Python 包装与扩展加载
+csrc/bindings.cpp            Python 与 C++ 的函数绑定
+csrc/vector_add_cuda.cu      CUDA Kernel 和 Host Launcher
+test_cuda.py                 PyTorch / Triton / CUDA 三方正确性测试
+```
+
+Windows 下可以直接从普通 PowerShell 运行。包装层会通过 `vswhere` 在当前 Python 进程中
+查找并加载已安装的 MSVC Build Tools，不会修改系统环境变量：
+
+```powershell
+python llm_kernels/vector_add/test_cuda.py
+```
+
+第一次运行会编译扩展。为兼容仓库父目录中的中文路径，包装层会将两份 C++/CUDA 源码
+同步到系统临时目录下的 `llm_kernel_lab_extensions/vector_add`，并在那里保存构建缓存；
+仓库中的 `csrc` 始终是唯一源码。后续运行只在源码变化时重新编译。
+
+CUDA 第一版先建立正确、可解释的 FP32 基线；下面继续用 Benchmark 和 NCU 验证性能。
+
+## 14. PyTorch / Triton / CUDA 性能对比
+
+三种实现共用 `benchmark.py` 中相同的输入、计时器和有效带宽公式。CUDA Extension
+会在正式计时之前完成编译，因此表中的延迟只包含算子调用和 GPU 执行，不包含编译时间。
+
+RTX 3080 Ti 的第一次三方实验结果：
+
+| N | PyTorch GB/s | Triton GB/s | CUDA GB/s |
+|---:|---:|---:|---:|
+| 1,024 | 0.83 | 2.40 | 3.00 |
+| 262,144 | 341.33 | 384.00 | 384.00 |
+| 4,194,304 | 780.19 | 768.00 | 768.00 |
+| 16,777,216 | 815.80 | 812.43 | 815.80 |
+| 67,108,864 | 825.65 | 826.08 | 831.32 |
+
+最大输入下三者的性能差距不到 1%，都进入约 830 GB/s 的显存带宽平台。这说明对于
+连续 Vector Add，PyTorch、Triton 和朴素 CUDA 都已经接近同一个硬件瓶颈。CUDA 的价值
+在这里主要是暴露 Grid、Block、Thread 和 Stream，而不是保证比高级框架更快。
+
+完整数据保存在：
+
+```text
+benchmarks/results/vector_add_cuda_rtx3080ti_fp32.csv
+```
+
+重新运行：
+
+```powershell
+python llm_kernels/vector_add/benchmark.py
+```
+
+用于 NCU 的 CUDA 单 Kernel 入口：
+
+```powershell
+ncu --set basic --kernel-name regex:^vector_add_kernel --launch-skip 10 `
+    --launch-count 1 python llm_kernels/vector_add/profile_cuda.py
+```
+
+CUDA 与 Triton 的 NCU 对照报告保存在：
+
+```text
+benchmarks/results/vector_add_cuda_rtx3080ti_ncu_basic.md
+```
+
+## 15. CUDA Threads / Block 实验
+
+CUDA 包装函数默认使用 256 Threads / Block，也可以显式传入其他配置：
+
+```python
+output = vector_add_cuda(x, y, threads_per_block=128)
+```
+
+参数必须是 `[32, 1024]` 范围内的 2 的幂。最终实验选择 `128`、`256`、`512` 三组：
+
+| Threads / Block | 最大输入 P50 | 最大输入有效带宽 | NCU Duration | DRAM Throughput | Achieved Occupancy |
+|---:|---:|---:|---:|---:|---:|
+| 128 | 980.992 μs | 820.91 GB/s | 247.42 μs | 91.73% | 80.37% |
+| 256 | 983.040 μs | 819.20 GB/s | 249.60 μs | 91.29% | 76.54% |
+| 512 | 979.968 μs | 821.77 GB/s | 247.94 μs | 91.96% | 66.70% |
+
+三种配置在最大输入上的 Benchmark 差距不到 0.4%，NCU Duration 差距不到 0.9%。虽然
+512 线程的 Achieved Occupancy 明显更低，但它的 DRAM Throughput 和运行时间没有明显
+变差，因为三种配置都提供了足够的并行度，并且已经到达相同的显存带宽瓶颈。
+
+因此最终默认值保留为 256：它是常见且容易解释的折中配置，而不是因为本次测量证明它
+最快。完整原始数据保存在：
+
+```text
+benchmarks/results/vector_add_cuda_block_comparison_rtx3080ti_fp32.csv
+```
+
+重新运行 Block 实验：
+
+```powershell
+python llm_kernels/vector_add/benchmark_cuda_blocks.py
+```
