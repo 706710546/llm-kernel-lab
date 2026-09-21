@@ -15,14 +15,16 @@ PyTorch 参考实现 → Triton Kernel → 正确性测试 → 性能基准 → 
 
 ## 当前里程碑
 
-Vector Add 已完成正确性、Benchmark、Profiler 和图表闭环。Reduction 已完成可信的
-PyTorch 参考实现、Triton V0 单 Program 归约，以及 Triton V1 两阶段分块归约的正确性、
-Benchmark 与 NCU 分析闭环。暂不进入 Transpose、Softmax 或 Attention。
+Vector Add 已完成 PyTorch、Triton、CUDA、Benchmark 和 Profiler 闭环。Reduction 已完成
+Triton V0/V1 的正确性、Benchmark 与 NCU 分析闭环。Matrix Transpose V0 已完成 PyTorch
+参考实现、Triton 32×32 Tile、CUDA Naive/Tiled、边界测试、Benchmark、Tile Size 实验和
+NCU 分析。
 
 | 算子 | PyTorch | Triton | CUDA | 研究重点 |
 |---|---:|---:|---:|---|
-| Vector Add | ✓ | ✓ | 计划中 | 显存带宽 |
+| Vector Add | ✓ | ✓ | ✓ | 显存带宽、CUDA 执行模型 |
 | Reduction（按行求和） | ✓ | V0 / V1 ✓ | 计划中 | 并行归约 |
+| Matrix Transpose | ✓ | V0 ✓ | Naive / Tiled ✓ | 二维 Tile、合并访存、共享内存 |
 
 ## 当前关键结果
 
@@ -49,6 +51,21 @@ RTX 3080 Ti 上的 FP32 Row Sum V0 / V1：
 
 完整分析见 [Row Sum V0 / V1 Nsight Compute 实验报告](benchmarks/results/reduction_v0_v1_rtx3080ti_ncu_basic.md)。
 
+RTX 3080 Ti 上的 FP32 Matrix Transpose V0：
+
+- `4096×4096` 输入的 Triton 有效带宽约为 775.57 GB/s；
+- Nsight Compute 测得 DRAM Throughput 为 89.22%；
+- `32×32` Tile 被编译为 128 Threads，并使用约 4.10 KB 动态共享内存；
+- Achieved Occupancy 为 93.44%。
+- 手写 CUDA Naive 因非合并写入，在 NCU 中只有 25.29% DRAM Throughput；
+- 手写 CUDA Tiled 使用 4.22 KB 静态共享内存，将 DRAM Throughput 提高到 87.11%，
+  性能与 Triton 基本一致。
+- `tile[32][32]` 产生 16,252,928 次共享内存读取 Bank Conflict；改为 `[32][33]` 后冲突
+  降为 0。
+
+完整分析见 [Transpose V0 Nsight Compute 实验报告](benchmarks/results/transpose_v0_rtx3080ti_ncu_basic.md)。
+CUDA 对照见 [Transpose CUDA NCU 实验报告](benchmarks/results/transpose_cuda_rtx3080ti_ncu_basic.md)。
+
 ## 已验证的开发环境
 
 - Windows 11、Python 3.11.9
@@ -68,6 +85,8 @@ python llm_kernels/vector_add/test.py
 python llm_kernels/vector_add/benchmark.py
 python llm_kernels/reduction/test.py
 python llm_kernels/reduction/benchmark.py
+python llm_kernels/transpose/test.py
+python llm_kernels/transpose/benchmark.py
 ```
 
 完成正确性和 Benchmark 后，可以用 Nsight Compute 捕获一次预热后的 Kernel：
@@ -101,16 +120,25 @@ llm-kernel-lab/
 │   └── gpu-performance-playbook.md
 └── llm_kernels/
     ├── vector_add/
+    │   ├── csrc/                # CUDA C++ Extension
+    │   ├── torch_impl.py
+    │   ├── triton_impl.py
+    │   ├── cuda_impl.py
+    │   ├── test.py
+    │   ├── benchmark.py
+    │   ├── profile.py
+    │   └── README.md
+    ├── reduction/
+    │   ├── torch_impl.py
+    │   ├── triton_impl.py       # V0：一行一个 Program
+    │   ├── triton_v1_impl.py    # V1：两阶段分块归约
+    │   ├── test.py
+    │   ├── benchmark.py
+    │   ├── profile.py
+    │   └── README.md
+    └── transpose/
         ├── torch_impl.py
         ├── triton_impl.py
-        ├── test.py
-        ├── benchmark.py
-        ├── profile.py
-        └── README.md
-    └── reduction/
-        ├── torch_impl.py
-        ├── triton_impl.py       # V0：一行一个 Program
-        ├── triton_v1_impl.py    # V1：两阶段分块归约
         ├── test.py
         ├── benchmark.py
         ├── profile.py
