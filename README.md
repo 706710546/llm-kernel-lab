@@ -18,13 +18,15 @@ PyTorch 参考实现 → Triton Kernel → 正确性测试 → 性能基准 → 
 Vector Add 已完成 PyTorch、Triton、CUDA、Benchmark 和 Profiler 闭环。Reduction 已完成
 Triton V0/V1 的正确性、Benchmark 与 NCU 分析闭环。Matrix Transpose V0 已完成 PyTorch
 参考实现、Triton 32×32 Tile、CUDA Naive/Tiled、边界测试、Benchmark、Tile Size 实验和
-NCU 分析。
+NCU 分析。Softmax 已完成稳定公式、Triton V0 单 Program、V1 并行分块、V2 在线扫描
+及 CUDA 共享内存归约基线，并完成正确性、Benchmark 和 NCU Spill 对照。
 
 | 算子 | PyTorch | Triton | CUDA | 研究重点 |
 |---|---:|---:|---:|---|
 | Vector Add | ✓ | ✓ | ✓ | 显存带宽、CUDA 执行模型 |
 | Reduction（按行求和） | ✓ | V0 / V1 ✓ | 计划中 | 并行归约 |
 | Matrix Transpose | ✓ | V0 ✓ | Naive / Tiled ✓ | 二维 Tile、合并访存、共享内存 |
+| Softmax | ✓ | V0 / V1 / V2 ✓ | V0 ✓ | 数值稳定性、分块归约、在线统计、Spill |
 
 ## 当前关键结果
 
@@ -66,6 +68,31 @@ RTX 3080 Ti 上的 FP32 Matrix Transpose V0：
 完整分析见 [Transpose V0 Nsight Compute 实验报告](benchmarks/results/transpose_v0_rtx3080ti_ncu_basic.md)。
 CUDA 对照见 [Transpose CUDA NCU 实验报告](benchmarks/results/transpose_cuda_rtx3080ti_ncu_basic.md)。
 
+RTX 3080 Ti 上的 FP32 Softmax V0：
+
+- `N≤8192` 时 Triton 与 PyTorch 性能接近，`4096×8192` 达到约 816.65 GB/s；
+- `N=32768` 时 Triton 下降到约 143.56 GB/s；
+- NCU 测得约 701.50 MB Local Load 和 510.13 MB Local Store；
+- Spill 使实际 DRAM 流量扩大到最低逻辑流量的约 5.44 倍；
+- 超宽行版本 Occupancy 更高但性能更差，证明 Occupancy 不能脱离 Spill 和数据流量判断。
+
+完整分析见 [Softmax V0 Nsight Compute 实验报告](benchmarks/results/softmax_v0_rtx3080ti_ncu_basic.md)。
+
+Softmax V1 将每行拆成 1,024 元素的块，在 FP32 中合并局部最大值和指数和。
+`1024×32768` 上的 P50 从 V0 的 1881.60 μs 降至 V1 的 501.76 μs；NCU 测得 V1
+三个阶段的 Local Load/Store 都为 0。详见
+[Softmax V1 对照报告](benchmarks/results/softmax_v1_rtx3080ti_ncu_basic.md)。
+
+Softmax V2 使用在线 `(m, l)` 更新，在 `1024×32768` 上 P50 为 494.59 μs，
+与 V1 的 502.78 μs 接近；NCU 测得无 Local Memory Spill。V2 只启动一个
+Kernel，但每行的块在同一 Program 内串行扫描，不能视为对 V1 的全面替代。
+详见 [Softmax V2 实验报告](benchmarks/results/softmax_v2_rtx3080ti_ncu_basic.md)。
+
+Softmax CUDA V0 用 256 线程和共享内存完成两次归约。在 `1024×32768` 上，
+本轮 P50 为 684.03 μs，NCU 测得三次输入读取、无 Local Memory Spill。
+它比 Triton V2 多一次全量读取，是用于理解线程协作和性能代价的教学基线。
+详见 [Softmax CUDA 对照报告](benchmarks/results/softmax_cuda_rtx3080ti_ncu_basic.md)。
+
 ## 已验证的开发环境
 
 - Windows 11、Python 3.11.9
@@ -87,6 +114,8 @@ python llm_kernels/reduction/test.py
 python llm_kernels/reduction/benchmark.py
 python llm_kernels/transpose/test.py
 python llm_kernels/transpose/benchmark.py
+python llm_kernels/softmax/test.py
+python llm_kernels/softmax/benchmark.py
 ```
 
 完成正确性和 Benchmark 后，可以用 Nsight Compute 捕获一次预热后的 Kernel：
@@ -136,9 +165,20 @@ llm-kernel-lab/
     │   ├── benchmark.py
     │   ├── profile.py
     │   └── README.md
-    └── transpose/
+    ├── transpose/
+    │   ├── torch_impl.py
+    │   ├── triton_impl.py
+    │   ├── test.py
+    │   ├── benchmark.py
+    │   ├── profile.py
+    │   └── README.md
+    └── softmax/
         ├── torch_impl.py
         ├── triton_impl.py
+        ├── triton_v1_impl.py
+        ├── triton_v2_impl.py
+        ├── cuda_impl.py
+        ├── csrc/                # CUDA C++ Extension
         ├── test.py
         ├── benchmark.py
         ├── profile.py
