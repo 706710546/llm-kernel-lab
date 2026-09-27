@@ -92,3 +92,8 @@ def _load_extension():
 def softmax_cuda(x: torch.Tensor) -> torch.Tensor:
     """调用每行一个 CUDA Block 的 FP32 Softmax 教学基线。"""
     return _load_extension().softmax(x)
+
+
+def softmax_cuda_shuffle(x: torch.Tensor) -> torch.Tensor:
+    """使用 Warp Shuffle 完成 Warp 内归约，共享内存只保存 8 个 Warp 的结果。"""
+    return _load_extension().shuffle(x)

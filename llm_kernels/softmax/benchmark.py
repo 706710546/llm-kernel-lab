@@ -1,4 +1,4 @@
-"""测量 PyTorch、Triton Softmax V0/V1/V2 的延迟与有效带宽。"""
+"""测量 PyTorch、Triton 与 CUDA Softmax 的延迟和有效带宽。"""
 
 from pathlib import Path
 import sys
@@ -12,7 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from llm_kernels.softmax.torch_impl import softmax_torch
-from llm_kernels.softmax.cuda_impl import softmax_cuda
+from llm_kernels.softmax.cuda_impl import softmax_cuda, softmax_cuda_shuffle
 from llm_kernels.softmax.triton_impl import MAX_BLOCK_SIZE, softmax_triton
 from llm_kernels.softmax.triton_v1_impl import softmax_triton_v1
 from llm_kernels.softmax.triton_v2_impl import softmax_triton_v2
@@ -69,6 +69,7 @@ def main() -> None:
             "triton_v1": lambda: softmax_triton_v1(x),
             "triton_v2": lambda: softmax_triton_v2(x),
             "cuda": lambda: softmax_cuda(x),
+            "cuda_shuffle": lambda: softmax_cuda_shuffle(x),
         }
         if columns <= MAX_BLOCK_SIZE:
             providers["triton_v0"] = lambda: softmax_triton(x)

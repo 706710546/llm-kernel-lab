@@ -289,3 +289,36 @@ CUDA V0 分三次扫描输入：
 编译用 PyTorch CUDA Extension；在本项目的中文 Windows 路径下，会把仓库中的
 源码暂存到 ASCII 临时目录再交给 NVCC。Windows 下 `.cu` 注释使用 ASCII，中文
 教学解释集中放在此文档中，以避免 NVCC 与系统编码组合导致的解析问题。
+
+## 15. CUDA V1：Warp Shuffle 归约
+
+一个 Warp 有 32 个线程。`__shfl_down_sync(mask, value, offset)` 可以让线程
+读取同一 Warp 中指定偏移线程的寄存器值，不需要先将这个值写入共享内存。
+本实现用偏移 `16, 8, 4, 2, 1` 做树形归约，最终只使用 lane 0 的归约结果。
+
+256 个线程是 8 个 Warp，因此 Block 归约分两层：
+
+```text
+每个线程的局部结果
+  → 8 个 Warp 各自 Shuffle 归约
+  → 每个 Warp 的 lane 0 写入一个共享内存位置
+  → 第一个 Warp 读取这 8 个值并再次归约
+  → 共享内存广播最终结果给全 Block
+```
+
+第一个 Warp 中剩余 24 个 lane 用中性值补齐：求最大值补 `-inf`，求和补 0。
+即使行宽不足 32，整个 Warp 仍参与 Shuffle；没有读取真实元素的线程先使用
+中性值。当前 Block 固定有 256 个线程，Shuffle 位于所有参与线程都执行的位置，
+因此使用 `0xffffffff` 全 Warp 掩码。不要把它直接照搬到只有部分 lane 执行
+Shuffle 的分支中。
+
+这里仍需 Block 同步：Warp Shuffle 只能交换 Warp 内的数据，不能替代跨 Warp
+共享内存交接。最后还要保证所有线程读完广播值再复用缓冲。此次也补上了旧版
+读取 `row_max` 后、复用共享缓冲前缺少的保护同步。
+
+共享缓冲从 1,024 B 降到 32 B，源码中 Block Barrier 从 19 次降到 6 次。
+同轮测试 `4096×128` 从 30.72 μs 降到 17.41 μs；`1024×32768` 则仍约
+683–684 μs。NCU 确认宽行读流量仍为 402.68 MB、无 Local Memory Spill。
+这是一个控制变量实验：归约更便宜了，但三遍读取输入的成本没有改变。
+
+完整报告见 `benchmarks/results/softmax_cuda_shuffle_rtx3080ti.md`。

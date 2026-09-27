@@ -11,7 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from llm_kernels.softmax.torch_impl import softmax_torch
-from llm_kernels.softmax.cuda_impl import softmax_cuda
+from llm_kernels.softmax.cuda_impl import softmax_cuda, softmax_cuda_shuffle
 from llm_kernels.softmax.triton_impl import MAX_BLOCK_SIZE, softmax_triton
 from llm_kernels.softmax.triton_v1_impl import softmax_triton_v1
 from llm_kernels.softmax.triton_v2_impl import softmax_triton_v2
@@ -33,6 +33,7 @@ def test_numerical_stability() -> None:
         ("V1", softmax_triton_v1),
         ("V2", softmax_triton_v2),
         ("CUDA", softmax_cuda),
+        ("CUDA Shuffle", softmax_cuda_shuffle),
     ):
         actual = implementation(x)
         torch.testing.assert_close(actual, expected, rtol=1e-5, atol=1e-6)
@@ -47,6 +48,7 @@ def test_numerical_stability() -> None:
         ("V1", softmax_triton_v1),
         ("V2", softmax_triton_v2),
         ("CUDA", softmax_cuda),
+        ("CUDA Shuffle", softmax_cuda_shuffle),
     ):
         torch.testing.assert_close(implementation(wide), softmax_torch(wide), rtol=0, atol=0)
         print(f"通过 {name} 跨块极值样例：最大值分别位于首块和尾块")
@@ -59,6 +61,11 @@ def test_shapes() -> None:
         (7, 0),
         (1, 1),
         (1, 17),
+        (3, 31),
+        (3, 32),
+        (3, 33),
+        (3, 255),
+        (3, 257),
         (7, 256),
         (31, 1_003),
         (2, 1_024),
@@ -79,6 +86,7 @@ def test_shapes() -> None:
             implementations = [("V1", softmax_triton_v1), ("V2", softmax_triton_v2)]
             if dtype == torch.float32:
                 implementations.append(("CUDA", softmax_cuda))
+                implementations.append(("CUDA Shuffle", softmax_cuda_shuffle))
             if columns <= MAX_BLOCK_SIZE:
                 implementations.insert(0, ("V0", softmax_triton))
             for name, implementation in implementations:
@@ -105,7 +113,7 @@ def main() -> None:
         raise RuntimeError("当前环境无法使用 CUDA")
     test_numerical_stability()
     test_shapes()
-    print("所有 Softmax V0 / V1 / V2 / CUDA 正确性测试均已通过。")
+    print("所有 Softmax V0 / V1 / V2 / CUDA / CUDA Shuffle 正确性测试均已通过。")
 
 
 if __name__ == "__main__":

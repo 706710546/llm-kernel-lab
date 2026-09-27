@@ -26,7 +26,7 @@ NCU 分析。Softmax 已完成稳定公式、Triton V0 单 Program、V1 并行�
 | Vector Add | ✓ | ✓ | ✓ | 显存带宽、CUDA 执行模型 |
 | Reduction（按行求和） | ✓ | V0 / V1 ✓ | 计划中 | 并行归约 |
 | Matrix Transpose | ✓ | V0 ✓ | Naive / Tiled ✓ | 二维 Tile、合并访存、共享内存 |
-| Softmax | ✓ | V0 / V1 / V2 ✓ | V0 ✓ | 数值稳定性、分块归约、在线统计、Spill |
+| Softmax | ✓ | V0 / V1 / V2 ✓ | V0 / Shuffle V1 ✓ | 数值稳定性、分块归约、在线统计、Spill |
 
 ## 当前关键结果
 
@@ -92,6 +92,10 @@ Softmax CUDA V0 用 256 线程和共享内存完成两次归约。在 `1024×327
 本轮 P50 为 684.03 μs，NCU 测得三次输入读取、无 Local Memory Spill。
 它比 Triton V2 多一次全量读取，是用于理解线程协作和性能代价的教学基线。
 详见 [Softmax CUDA 对照报告](benchmarks/results/softmax_cuda_rtx3080ti_ncu_basic.md)。
+
+CUDA Shuffle V1 保持三遍输入读取不变，将归约的静态共享内存从 1,024 B 降至
+32 B。`4096×128` 的本轮 P50 从修复同步后的基线 30.72 μs 降至 17.41 μs；
+超宽行则基本不变。详见 [Shuffle 实验报告](benchmarks/results/softmax_cuda_shuffle_rtx3080ti.md)。
 
 ## 已验证的开发环境
 
