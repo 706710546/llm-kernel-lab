@@ -97,3 +97,8 @@ def softmax_cuda(x: torch.Tensor) -> torch.Tensor:
 def softmax_cuda_shuffle(x: torch.Tensor) -> torch.Tensor:
     """使用 Warp Shuffle 完成 Warp 内归约，共享内存只保存 8 个 Warp 的结果。"""
     return _load_extension().shuffle(x)
+
+
+def softmax_cuda_online(x: torch.Tensor) -> torch.Tensor:
+    """每线程在线统计，再合并 (最大值, 指数和)，只读取输入两遍。"""
+    return _load_extension().online(x)

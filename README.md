@@ -13,20 +13,23 @@ PyTorch 参考实现 → Triton Kernel → 正确性测试 → 性能基准 → 
 
 本项目优先关注学习、正确性、性能分析和硬件原理，不以成为生产级算子库为目标。
 
+中文学习入口：零基础重启请看[从零开始、跟着代码学的完整手册](docs/from-zero-guided-study.md)；
+项目总结与求职表达请看[阶段复习与后续路线](docs/project-review-and-learning-roadmap.md)。
+
 ## 当前里程碑
 
 Vector Add 已完成 PyTorch、Triton、CUDA、Benchmark 和 Profiler 闭环。Reduction 已完成
 Triton V0/V1 的正确性、Benchmark 与 NCU 分析闭环。Matrix Transpose V0 已完成 PyTorch
 参考实现、Triton 32×32 Tile、CUDA Naive/Tiled、边界测试、Benchmark、Tile Size 实验和
 NCU 分析。Softmax 已完成稳定公式、Triton V0 单 Program、V1 并行分块、V2 在线扫描
-及 CUDA 共享内存归约基线，并完成正确性、Benchmark 和 NCU Spill 对照。
+及 CUDA 共享内存基线、Shuffle 与在线状态归约，并完成正确性、Benchmark 和 NCU 对照。
 
 | 算子 | PyTorch | Triton | CUDA | 研究重点 |
 |---|---:|---:|---:|---|
 | Vector Add | ✓ | ✓ | ✓ | 显存带宽、CUDA 执行模型 |
 | Reduction（按行求和） | ✓ | V0 / V1 ✓ | 计划中 | 并行归约 |
 | Matrix Transpose | ✓ | V0 ✓ | Naive / Tiled ✓ | 二维 Tile、合并访存、共享内存 |
-| Softmax | ✓ | V0 / V1 / V2 ✓ | V0 / Shuffle V1 ✓ | 数值稳定性、分块归约、在线统计、Spill |
+| Softmax | ✓ | V0 / V1 / V2 ✓ | V0 / Shuffle V1 / Online V2 ✓ | 数值稳定性、分块归约、在线统计、Spill |
 
 ## 当前关键结果
 
@@ -97,6 +100,11 @@ CUDA Shuffle V1 保持三遍输入读取不变，将归约的静态共享内存�
 32 B。`4096×128` 的本轮 P50 从修复同步后的基线 30.72 μs 降至 17.41 μs；
 超宽行则基本不变。详见 [Shuffle 实验报告](benchmarks/results/softmax_cuda_shuffle_rtx3080ti.md)。
 
+CUDA Online V2 将统计阶段合并为一次输入扫描，再读取一次写出概率。在三轮
+交替顺序对照中，`1024×32768` 的 P50 中位数从 Shuffle 的 685.52 μs 降至
+529.41 μs；NCU 读流量约 268.47 MB，符合两遍读取。短行则更慢，不能全面替换
+Shuffle。详见 [Online 实验报告](benchmarks/results/softmax_cuda_online_rtx3080ti.md)。
+
 ## 已验证的开发环境
 
 - Windows 11、Python 3.11.9
@@ -150,7 +158,9 @@ llm-kernel-lab/
 │   └── results/
 ├── docs/
 │   ├── environment.md
-│   └── gpu-performance-playbook.md
+│   ├── gpu-performance-playbook.md
+│   ├── from-zero-guided-study.md
+│   └── project-review-and-learning-roadmap.md
 └── llm_kernels/
     ├── vector_add/
     │   ├── csrc/                # CUDA C++ Extension

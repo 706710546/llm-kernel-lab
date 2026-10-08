@@ -322,3 +322,79 @@ Shuffle 的分支中。
 这是一个控制变量实验：归约更便宜了，但三遍读取输入的成本没有改变。
 
 完整报告见 `benchmarks/results/softmax_cuda_shuffle_rtx3080ti.md`。
+
+## 16. CUDA Online V2：归约对象从一个数变成一对状态
+
+此前 CUDA 先扫描求最大值，再扫描求指数和，最后扫描写输出。Online V2
+把前两步合并：每个线程扫描自己负责的列，同时维护 `SoftmaxState{maximum, sum}`。
+它表示该线程已经处理的集合 A：
+
+```text
+m_A = max(A)
+l_A = Σₓ∈A exp(x-m_A)
+```
+
+线程 t 的列仍然是 `t, t+256, t+512, ...`。这些是离散的线程局部集合，但同一轮
+相邻线程加载的列相邻，仍有利于合并访存。每线程更新有顺序依赖；不同线程可以
+并行统计自己的集合，最后再合并。
+
+### 16.1 加入一个新元素
+
+新值为 v。如果 `v > m`，旧指数和要换到更大的基准：
+
+```text
+l = l * exp(m-v) + 1
+m = v
+```
+
+否则最大值不变，只要 `l += exp(v-m)`。两种分支每次只计算一个指数，
+这与通用双指数公式数学上等价。初始状态 `(-inf, 0)` 表示尚未处理任何元素。
+
+### 16.2 合并两个线程的集合
+
+不能将 l_A 与 l_B 直接相加。若 `m_A >= m_B`：
+
+```text
+m = m_A
+l = l_A + l_B * exp(m_B-m_A)
+```
+
+否则保留 m_B，并缩放 l_A。这一操作能合并两个不相交输入集合；在精确算术下
+与分组顺序无关，在浮点计算中仍会有舍入差异，所以测试使用容差。
+
+例如集合 A=[1,2]、B=[3,4]：A 的指数和以 2 为基准，B 以 4 为基准。
+最终采用基准 4，A 的和乘 `exp(2-4)` 后才能加入 B 的和。
+
+### 16.3 空状态不能照搬普通公式
+
+当 N 小于线程数时，一些线程没有元素。我们用 `(-inf,0)` 表示空集合。
+若两个空集合直接算 `exp(m_A-m_B)`，就会出现 `exp(-inf-(-inf))=NaN`。
+因此 `merge_states` 先判断空状态，空集合与 A 合并仍返回 A。
+对于本项目测试的有限、非空输入集合，至少一个最大值的指数贡献为 1，
+所以 l 不为 0，可用 l=0 识别空状态。这里不承诺 NaN/Inf 输入的特殊语义。
+
+### 16.4 Warp 到 Block 的合并
+
+`warp_reduce_state` 分别 Shuffle maximum 和 sum，再按状态合并规则计算。
+每个 Warp 的 lane 0 将一对结果写入共享内存；第一个 Warp 合并这 8 对，
+再向整个 Block 广播最终结果。共享内存为两个 8-float 数组，共 64 B。
+两次 Block Barrier 分别保护 Warp 结果交接与最终结果广播；之后不复用缓冲。
+
+第二遍输入扫描用最终的 `(m,l)` 写出概率。因此它仍是独立 Softmax 的两遍
+实现，不是 FlashAttention。减少输入读取并不保证更快：在线依赖、指数运算
+和分支也有成本，需要 Benchmark 与实际 DRAM 计数器验证。
+
+### 16.5 实验结果与运行方式
+
+三轮交替 provider 顺序实验的 P50 中位数：`1024×32768` 从 Shuffle 的
+685.52 μs 降到 Online 的 529.41 μs；`4096×128` 从 17.41 μs 增到
+26.62 μs。宽行收益来自少读一遍输入，但短行没有足够数据量抵消状态合并成本。
+NCU 测得 Online 宽行读流量约 268.47 MB、Local Load/Store 为 0 B，符合
+两遍读取；此版本仍不是普适最快的 Softmax。
+
+```powershell
+python llm_kernels/softmax/test.py
+python llm_kernels/softmax/benchmark_cuda_online.py
+```
+
+完整报告与测试范围见 `benchmarks/results/softmax_cuda_online_rtx3080ti.md`。

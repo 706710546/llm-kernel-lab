@@ -14,12 +14,16 @@ if str(PROJECT_ROOT) not in sys.path:
 from llm_kernels.softmax.triton_impl import softmax_triton
 from llm_kernels.softmax.triton_v1_impl import CHUNK_SIZE, softmax_triton_v1
 from llm_kernels.softmax.triton_v2_impl import softmax_triton_v2
-from llm_kernels.softmax.cuda_impl import softmax_cuda, softmax_cuda_shuffle
+from llm_kernels.softmax.cuda_impl import softmax_cuda, softmax_cuda_shuffle, softmax_cuda_online
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="运行用于 NCU 分析的 Softmax")
-    parser.add_argument("--version", choices=("v0", "v1", "v2", "cuda", "cuda_shuffle"), default="v0")
+    parser.add_argument(
+        "--version",
+        choices=("v0", "v1", "v2", "cuda", "cuda_shuffle", "cuda_online"),
+        default="v0",
+    )
     parser.add_argument("--rows", type=int, default=4096)
     parser.add_argument("--columns", type=int, default=8192)
     parser.add_argument("--warmup", type=int, default=10)
@@ -46,6 +50,7 @@ def main() -> None:
         "v2": softmax_triton_v2,
         "cuda": softmax_cuda,
         "cuda_shuffle": softmax_cuda_shuffle,
+        "cuda_online": softmax_cuda_online,
     }
     implementation = implementations[args.version]
     for _ in range(args.warmup):
@@ -61,7 +66,7 @@ def main() -> None:
     print(f"版本：{args.version}")
     if args.version in ("v0", "v2"):
         print(f"Program 数量：{args.rows:,}")
-    elif args.version in ("cuda", "cuda_shuffle"):
+    elif args.version in ("cuda", "cuda_shuffle", "cuda_online"):
         print(f"CUDA Block 数量：{args.rows:,}；每个 Block 256 个线程")
     else:
         chunks = (args.columns + CHUNK_SIZE - 1) // CHUNK_SIZE

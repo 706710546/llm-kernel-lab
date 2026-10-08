@@ -117,10 +117,88 @@ __global__ void softmax_cuda_shuffle_kernel(
     }
 }
 
+struct SoftmaxState {
+    float maximum;
+    float sum;
+};
+
+
+__device__ SoftmaxState merge_states(SoftmaxState a, SoftmaxState b) {
+    // Empty lanes are identities. Avoid exp(-inf - -inf) for two empty states.
+    if (a.sum == 0.0f) return b;
+    if (b.sum == 0.0f) return a;
+    if (a.maximum >= b.maximum) {
+        return {a.maximum, a.sum + b.sum * expf(b.maximum - a.maximum)};
+    }
+    return {b.maximum, b.sum + a.sum * expf(a.maximum - b.maximum)};
+}
+
+
+__device__ SoftmaxState warp_reduce_state(SoftmaxState state) {
+    const int lane = threadIdx.x % 32;
+    for (int offset = 16; offset > 0; offset >>= 1) {
+        SoftmaxState other;
+        other.maximum = __shfl_down_sync(0xffffffffu, state.maximum, offset);
+        other.sum = __shfl_down_sync(0xffffffffu, state.sum, offset);
+        if (lane + offset < 32) {
+            state = merge_states(state, other);
+        }
+    }
+    return state;
+}
+
+
+__global__ void softmax_cuda_online_kernel(
+    const float* input, float* output, std::int64_t n_columns) {
+    const std::int64_t row = blockIdx.x;
+    const float* row_input = input + row * n_columns;
+    float* row_output = output + row * n_columns;
+    const int lane = threadIdx.x % 32;
+    const int warp = threadIdx.x / 32;
+    __shared__ float maxima[kThreads / 32];
+    __shared__ float sums[kThreads / 32];
+
+    SoftmaxState state = {-CUDART_INF_F, 0.0f};
+    // One scan obtains both statistics for each thread's strided subset.
+    for (std::int64_t column = threadIdx.x; column < n_columns; column += kThreads) {
+        const float value = row_input[column];
+        if (value > state.maximum) {
+            state.sum = state.sum * expf(state.maximum - value) + 1.0f;
+            state.maximum = value;
+        } else {
+            state.sum += expf(value - state.maximum);
+        }
+    }
+
+    state = warp_reduce_state(state);
+    if (lane == 0) {
+        maxima[warp] = state.maximum;
+        sums[warp] = state.sum;
+    }
+    __syncthreads();
+    if (warp == 0) {
+        state = lane < kThreads / 32
+            ? SoftmaxState{maxima[lane], sums[lane]}
+            : SoftmaxState{-CUDART_INF_F, 0.0f};
+        state = warp_reduce_state(state);
+        if (lane == 0) {
+            maxima[0] = state.maximum;
+            sums[0] = state.sum;
+        }
+    }
+    __syncthreads();
+    const float row_max = maxima[0];
+    const float denominator = sums[0];
+    // The final state is known; a second scan writes probabilities.
+    for (std::int64_t column = threadIdx.x; column < n_columns; column += kThreads) {
+        row_output[column] = expf(row_input[column] - row_max) / denominator;
+    }
+}
+
 }  // namespace
 
 
-torch::Tensor run_softmax_cuda(torch::Tensor input, bool shuffle) {
+torch::Tensor run_softmax_cuda(torch::Tensor input, int version) {
     TORCH_CHECK(input.is_cuda(), "input must be a CUDA tensor");
     TORCH_CHECK(input.dim() == 2, "input must be a 2D tensor");
     TORCH_CHECK(input.scalar_type() == torch::kFloat32, "input must be float32");
@@ -135,10 +213,13 @@ torch::Tensor run_softmax_cuda(torch::Tensor input, bool shuffle) {
     const std::int64_t n_rows = input.size(0);
     const std::int64_t n_columns = input.size(1);
     TORCH_CHECK(
-        n_rows <= std::numeric_limits<unsigned int>::max(),
+        n_rows <= std::numeric_limits<int>::max(),
         "number of rows exceeds CUDA grid limit");
     const cudaStream_t stream = at::cuda::getCurrentCUDAStream(input.get_device());
-    if (shuffle) {
+    if (version == 2) {
+        softmax_cuda_online_kernel<<<static_cast<unsigned int>(n_rows), kThreads, 0, stream>>>(
+            input.data_ptr<float>(), output.data_ptr<float>(), n_columns);
+    } else if (version == 1) {
         softmax_cuda_shuffle_kernel<<<static_cast<unsigned int>(n_rows), kThreads, 0, stream>>>(
             input.data_ptr<float>(), output.data_ptr<float>(), n_columns);
     } else {
@@ -146,16 +227,21 @@ torch::Tensor run_softmax_cuda(torch::Tensor input, bool shuffle) {
             input.data_ptr<float>(), output.data_ptr<float>(), n_columns);
     }
     const cudaError_t error = cudaGetLastError();
-    TORCH_CHECK(error == cudaSuccess, "softmax_cuda_kernel launch failed: ", cudaGetErrorString(error));
+    TORCH_CHECK(error == cudaSuccess, "CUDA Softmax launch failed: ", cudaGetErrorString(error));
     return output;
 }
 
 
 torch::Tensor softmax_cuda(torch::Tensor input) {
-    return run_softmax_cuda(input, false);
+    return run_softmax_cuda(input, 0);
 }
 
 
 torch::Tensor softmax_cuda_shuffle(torch::Tensor input) {
-    return run_softmax_cuda(input, true);
+    return run_softmax_cuda(input, 1);
+}
+
+
+torch::Tensor softmax_cuda_online(torch::Tensor input) {
+    return run_softmax_cuda(input, 2);
 }

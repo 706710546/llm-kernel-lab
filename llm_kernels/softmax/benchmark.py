@@ -12,7 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from llm_kernels.softmax.torch_impl import softmax_torch
-from llm_kernels.softmax.cuda_impl import softmax_cuda, softmax_cuda_shuffle
+from llm_kernels.softmax.cuda_impl import softmax_cuda, softmax_cuda_shuffle, softmax_cuda_online
 from llm_kernels.softmax.triton_impl import MAX_BLOCK_SIZE, softmax_triton
 from llm_kernels.softmax.triton_v1_impl import softmax_triton_v1
 from llm_kernels.softmax.triton_v2_impl import softmax_triton_v2
@@ -70,6 +70,7 @@ def main() -> None:
             "triton_v2": lambda: softmax_triton_v2(x),
             "cuda": lambda: softmax_cuda(x),
             "cuda_shuffle": lambda: softmax_cuda_shuffle(x),
+            "cuda_online": lambda: softmax_cuda_online(x),
         }
         if columns <= MAX_BLOCK_SIZE:
             providers["triton_v0"] = lambda: softmax_triton(x)

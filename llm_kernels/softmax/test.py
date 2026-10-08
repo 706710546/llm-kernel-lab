@@ -11,7 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from llm_kernels.softmax.torch_impl import softmax_torch
-from llm_kernels.softmax.cuda_impl import softmax_cuda, softmax_cuda_shuffle
+from llm_kernels.softmax.cuda_impl import softmax_cuda, softmax_cuda_shuffle, softmax_cuda_online
 from llm_kernels.softmax.triton_impl import MAX_BLOCK_SIZE, softmax_triton
 from llm_kernels.softmax.triton_v1_impl import softmax_triton_v1
 from llm_kernels.softmax.triton_v2_impl import softmax_triton_v2
@@ -34,6 +34,7 @@ def test_numerical_stability() -> None:
         ("V2", softmax_triton_v2),
         ("CUDA", softmax_cuda),
         ("CUDA Shuffle", softmax_cuda_shuffle),
+        ("CUDA Online", softmax_cuda_online),
     ):
         actual = implementation(x)
         torch.testing.assert_close(actual, expected, rtol=1e-5, atol=1e-6)
@@ -49,6 +50,7 @@ def test_numerical_stability() -> None:
         ("V2", softmax_triton_v2),
         ("CUDA", softmax_cuda),
         ("CUDA Shuffle", softmax_cuda_shuffle),
+        ("CUDA Online", softmax_cuda_online),
     ):
         torch.testing.assert_close(implementation(wide), softmax_torch(wide), rtol=0, atol=0)
         print(f"通过 {name} 跨块极值样例：最大值分别位于首块和尾块")
@@ -87,6 +89,7 @@ def test_shapes() -> None:
             if dtype == torch.float32:
                 implementations.append(("CUDA", softmax_cuda))
                 implementations.append(("CUDA Shuffle", softmax_cuda_shuffle))
+                implementations.append(("CUDA Online", softmax_cuda_online))
             if columns <= MAX_BLOCK_SIZE:
                 implementations.insert(0, ("V0", softmax_triton))
             for name, implementation in implementations:
@@ -108,12 +111,34 @@ def test_shapes() -> None:
                 )
 
 
+def test_online_states() -> None:
+    """覆盖空 lane、重复极值、不断变化的最大值和跨线程状态合并。"""
+    for columns in (1, 17, 33, 257, 1_025, 4_097):
+        ascending = torch.linspace(-100.0, 100.0, columns, device="cuda")
+        x = torch.stack((ascending, ascending.flip(0), torch.full_like(ascending, -100.0)))
+        actual = softmax_cuda_online(x)
+        torch.testing.assert_close(actual, softmax_torch(x), rtol=1e-4, atol=1e-6)
+        assert torch.isfinite(actual).all()
+        assert (actual >= 0).all()
+        print(f"通过 CUDA Online 状态合并样例 N={columns:,}")
+
+    stream = torch.cuda.Stream()
+    with torch.cuda.stream(stream):
+        x = torch.randn((3, 1_025), device="cuda")
+        actual = softmax_cuda_online(x)
+        expected = softmax_torch(x)
+    stream.synchronize()
+    torch.testing.assert_close(actual, expected, rtol=1e-4, atol=1e-6)
+    print("通过 CUDA Online 非默认 Stream 样例")
+
+
 def main() -> None:
     if not torch.cuda.is_available():
         raise RuntimeError("当前环境无法使用 CUDA")
     test_numerical_stability()
     test_shapes()
-    print("所有 Softmax V0 / V1 / V2 / CUDA / CUDA Shuffle 正确性测试均已通过。")
+    test_online_states()
+    print("所有 Softmax Triton / CUDA / Shuffle / Online 正确性测试均已通过。")
 
 
 if __name__ == "__main__":
