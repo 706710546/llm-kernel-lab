@@ -30,6 +30,7 @@ NCU 分析。Softmax 已完成稳定公式、Triton V0 单 Program、V1 并行�
 | Reduction（按行求和） | ✓ | V0 / V1 ✓ | 计划中 | 并行归约 |
 | Matrix Transpose | ✓ | V0 ✓ | Naive / Tiled ✓ | 二维 Tile、合并访存、共享内存 |
 | Softmax | ✓ | V0 / V1 / V2 ✓ | V0 / Shuffle V1 / Online V2 ✓ | 数值稳定性、分块归约、在线统计、Spill |
+| RMSNorm | ✓ | V0 / V1 / Auto ✓ | FP32/FP16/BF16 shared-memory / Shuffle ✓ | FP32 累加、行内与宽行归约 |
 
 ## 当前关键结果
 
@@ -105,6 +106,16 @@ CUDA Online V2 将统计阶段合并为一次输入扫描，再读取一次写�
 529.41 μs；NCU 读流量约 268.47 MB，符合两遍读取。短行则更慢，不能全面替换
 Shuffle。详见 [Online 实验报告](benchmarks/results/softmax_cuda_online_rtx3080ti.md)。
 
+RMSNorm Triton V0 在 FP32 `1024×4096` 上的 Benchmark P50 约为 45 μs，逻辑带宽约
+745 GB/s。CUDA C++ 共享内存和 Warp Shuffle 版本同形状 P50 都约为 60 μs；Shuffle 将
+共享内存从 1,024 B 降至 32 B、Block 同步从 9 次降到 2 次，但本轮未观察到稳定端到端
+提速。CUDA 和 Triton 现均支持 FP16/BF16；CUDA 以 FP32 累加，`1024×4096` 半精度 P50
+约为 31 μs。详见 [RMSNorm 说明与实验结果](llm_kernels/rmsnorm/README.md)。
+
+Triton RMSNorm V1 用两阶段分块支持超过 16,384 列的行。在 `M=256` 的 FP32 宽行测试中，
+`N=65,537` 的 V1 P50 约为 247.808 μs，CUDA 单 Block/行 Shuffle 版约为 321.536 μs；
+详细测试与 NCU 指标见 [V1 宽行报告](benchmarks/results/rmsnorm_v1_wide_rtx3080ti_ncu_basic.md)。
+
 ## 已验证的开发环境
 
 - Windows 11、Python 3.11.9
@@ -128,7 +139,14 @@ python llm_kernels/transpose/test.py
 python llm_kernels/transpose/benchmark.py
 python llm_kernels/softmax/test.py
 python llm_kernels/softmax/benchmark.py
+python llm_kernels/rmsnorm/test.py
+python llm_kernels/rmsnorm/benchmark.py
+python llm_kernels/rmsnorm/benchmark_wide.py
 ```
+
+RMSNorm 当前已有 PyTorch 参考实现、Triton V0/V1、CUDA C++ FP32/FP16/BF16 共享内存与 Shuffle 版本、
+测试、Benchmark 与 NCU 基础分析。模块原理与实现边界见
+[`llm_kernels/rmsnorm/README.md`](llm_kernels/rmsnorm/README.md)。
 
 完成正确性和 Benchmark 后，可以用 Nsight Compute 捕获一次预热后的 Kernel：
 
@@ -186,15 +204,26 @@ llm-kernel-lab/
     │   ├── benchmark.py
     │   ├── profile.py
     │   └── README.md
-    └── softmax/
+    ├── softmax/
+    │   ├── torch_impl.py
+    │   ├── triton_impl.py
+    │   ├── triton_v1_impl.py
+    │   ├── triton_v2_impl.py
+    │   ├── cuda_impl.py
+    │   ├── csrc/                # CUDA C++ Extension
+    │   ├── test.py
+    │   ├── benchmark.py
+    │   ├── profile.py
+    │   └── README.md
+    └── rmsnorm/
         ├── torch_impl.py
-        ├── triton_impl.py
-        ├── triton_v1_impl.py
-        ├── triton_v2_impl.py
+        ├── triton_impl.py       # V0：单 Program/行
+        ├── triton_v1_impl.py    # V1：两阶段宽行分块
         ├── cuda_impl.py
-        ├── csrc/                # CUDA C++ Extension
+        ├── csrc/                # shared 与 Warp Shuffle CUDA Extension
         ├── test.py
         ├── benchmark.py
+        ├── benchmark_wide.py
         ├── profile.py
         └── README.md
 ```

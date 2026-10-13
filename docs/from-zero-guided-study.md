@@ -7,7 +7,11 @@
 > 解释输出 → 完成检查点」。全部走通后，你应当能够独立讲解现有实现及其证据；“完全掌握”仍需要
 > 自己修改代码、复现测量和处理新形状，无法靠被动阅读保证。
 
-本手册不覆盖尚未实现的 RMSNorm、MatMul 或 Attention，也不把 Online Softmax 称为 FlashAttention。
+本手册主要讲解 Vector Add、Reduction、Transpose 和 Softmax。RMSNorm 现已包含 PyTorch
+参考、Triton V0/V1/Auto、CUDA C++ FP32/FP16/BF16 shared 与 Warp Shuffle；其公式、线程映射、
+两阶段宽行归约、Benchmark 和 NCU 对照见
+[RMSNorm 模块学习说明](../llm_kernels/rmsnorm/README.md)。MatMul 和 Attention 尚未实现；
+Online Softmax 也不等于 FlashAttention。
 另有一份偏项目总结和求职表达的[阶段复习文档](project-review-and-learning-roadmap.md)；建议先按本手册动手，
 再用那份文档复盘。
 
@@ -788,8 +792,10 @@ Softmax V1 有多个阶段，应分别捕获、汇总分析，不能将 Stage 1 
 3. 选择 Shuffle 宽行没有明显加速的例子，解释为什么**负结果也有价值**。
 4. 对照第 12 章检查题核查薄弱环节，再定下一阶段学习计划。
 
-读完后的下一项代码工作是 RMSNorm；先从 PyTorch 参考公式与 FP32 归约开始，
-再做 Triton/CUDA 对照。MatMul、Attention 在后面。当前仓库还不是完整推理
+RMSNorm 当前阶段已完成：PyTorch 参考公式、Triton V0/V1 与按行宽自动分派、CUDA shared/
+Shuffle 归约、FP32/FP16/BF16 正确性测试、常规与超宽行 Benchmark 及 NCU 对照。Shuffle
+减少共享内存和 Block 同步但没有稳定提速，是理解“资源指标改善不等于端到端变快”的好例子。
+下一阶段可以进入 LayerNorm 或 MatMul；Attention 在后面。当前仓库还不是完整推理
 引擎，也没有编译器 IR/Pass 实现；编译器工作仍应在第二个独立项目进行。
 
 ## 12. 自测题与核对要点

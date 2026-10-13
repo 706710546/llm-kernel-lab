@@ -11,7 +11,9 @@
 
 ## 1. 项目目前进行到哪一步？
 
-已完成四个算子，当前停在 **Softmax 的 CUDA Online 两遍读取实验**。
+已完成 Vector Add、Reduction、Matrix Transpose 和 Softmax 四个算子；RMSNorm 已完成
+PyTorch 参考实现、Triton V0/V1、CUDA C++ FP32/FP16/BF16 共享内存与 Warp Shuffle 版本、正确性测试、
+Benchmark 与 NCU Basic 对照。
 这不是完整推理框架，也不是编译器项目，而是一个有可复现实验的 GPU 算子实验室。
 
 | 模块 | 已完成实现 | 已完成验证 | 尚未完成 |
@@ -20,11 +22,13 @@
 | Row Sum | PyTorch、Triton V0/V1 | 边界与低精度测试、Benchmark、两阶段 NCU | 独立 CUDA Row Sum |
 | Matrix Transpose | PyTorch 连续副本、Triton Tile、CUDA Naive/Tiled | 正确性、Tile 实验、Padding/Bank Conflict 对照、NCU | 通用任意 Stride 支持 |
 | Softmax | PyTorch、Triton V0/V1/V2、FP32 CUDA 基线/Shuffle/Online | 数值稳定性与边界测试、版本 Benchmark、Spill/流量/归约实验 | 自动形状分派、更多 dtype/Stride 支持 |
+| RMSNorm | PyTorch、Triton V0/V1/Auto、CUDA shared/Shuffle FP32/FP16/BF16 | 三 dtype 测试、宽行 Benchmark、CUDA 与 Triton NCU、auto 路由 | 更广 M/N 调优；CUDA Extension 不含 autograd |
 
 各模块中的 V0/V1/V2 是该模块自己的版本号，不是全仓库发布版本。
 例如 Reduction V1 是两阶段求和，Softmax V1 是三阶段分块归一化。
 
-尚未实现的重点：RMSNorm/LayerNorm、MatMul、Tensor Core 实验、Attention。
+尚未实现的重点：RMSNorm 在更多工作负载上的调优、LayerNorm、MatMul、
+Tensor Core 实验和 Attention。
 尚不能宣称完成：FlashAttention、LLM 端到端推理优化、生产级算子库、编译器 Pass。
 
 现有统一结构无需大改：
@@ -339,9 +343,14 @@ NCU 测得宽行输入读取约 268.47 MB，接近两份输入；历史 Shuffle 
 
 ### 7.2 RMSNorm/LayerNorm：从归约到融合
 
-先做 RMSNorm，复用平方和归约、FP32 累加与按行映射。再考虑 LayerNorm
-中的均值、方差及稳定计算。学习收益是把多步计算合成一个 Kernel，减少中间
-Tensor 与流量，而不是只追求算子数量。
+RMSNorm V0 用单 Program 处理一行，V1 用两阶段分块处理宽度超过 16,384 的行；Auto
+入口按宽度选择版本。CUDA C++ shared/Shuffle 两种归约均支持 FP32/FP16/BF16，并以 FP32
+累加。CUDA Shuffle 将共享内存从 1,024 B 降至 32 B、Block 同步从 9 次降至 2 次，但在
+五组常见形状上没有稳定端到端提速。宽行 `M=256,N=65,537` 时 Triton V1 P50 为
+247.808 μs，CUDA Shuffle 为 321.536 μs。正确性、三 dtype Benchmark、宽行 Benchmark 与
+NCU 采样均已完成；未来可以按目标模型形状继续扩展实验。再考虑 LayerNorm 中心化、均值、
+方差与稳定计算。学习收益是把多步
+计算合成一个 Kernel，减少中间 Tensor 与流量，而不是只追求算子数量。
 
 ### 7.3 MatMul：补齐计算密集型能力
 
